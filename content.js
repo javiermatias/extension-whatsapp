@@ -53,6 +53,7 @@ window.addEventListener("trigger-sending", async () => {
 
       const xpath = "//mws-message-send-button[@class='floating-button']";
       const sendButton = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+      //for(const event in getEventListeners(sendButton)){console.log(event)}
       const event = new CustomEvent("sendClicked", {
         bubbles: true,
         cancelable: true,
