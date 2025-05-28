@@ -35,30 +35,6 @@ window.addEventListener("trigger-sending", async () => {
         console.log(numberSpan);
         numberSpan.click();
       }
-      /* const enterEvent = new KeyboardEvent('keydown', {
-        key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
-      });
-      input.dispatchEvent(enterEvent); */
-      //input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-/* 
-      const spaceEventOptions = {
-        key: ' ',
-        code: 'Space',
-        keyCode: 32,
-        charCode: 32,
-        which: 32,
-        bubbles: true,
-        cancelable: true
-      };
-      
-      // Simulate spacebar press sequence
-      input.dispatchEvent(new KeyboardEvent('keydown', spaceEventOptions));
-      input.dispatchEvent(new KeyboardEvent('keypress', spaceEventOptions));
-  
-      input.dispatchEvent(new InputEvent('input', { bubbles: true }));
-      
-      input.dispatchEvent(new KeyboardEvent('keyup', spaceEventOptions)); */
-
 
 
       await sleep(3000);
@@ -73,9 +49,15 @@ window.addEventListener("trigger-sending", async () => {
       textArea.focus();
       textArea.value = message;
       textArea.dispatchEvent(new Event("input", { bubbles: true }));
-      await sleep(1000);
-      //const buttonSpan = document.querySelector("span.anon-contact-name");
-      //textArea.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      await sleep(2000);
+
+      const xpath = "//mws-message-send-button[@class='floating-button']";
+      const sendButton = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+      const event = new CustomEvent("sendClicked", {
+        bubbles: true,
+        cancelable: true,
+      });
+      sendButton.dispatchEvent(event);
       await sleep(3000);
     } else {
       console.error("Text area not found");
