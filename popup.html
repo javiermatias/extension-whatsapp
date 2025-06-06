@@ -3,13 +3,42 @@
 <head>
   <title>Send Messages</title>
   <style>
-    body { font-family: Arial; padding: 10px; }
-    button { padding: 8px 12px; }
+    body { 
+      font-family: Arial, sans-serif; 
+      padding: 15px; 
+      width: 250px;
+      text-align: center;
+    }
+    h3 {
+      margin-top: 0;
+    }
+    #contactCount {
+        font-size: 16px;
+        font-weight: bold;
+        color: #333;
+        background-color: #f0f0f0;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+    }
+    button { 
+      padding: 10px 15px; 
+      width: 100%;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 8px; /* Add some space between buttons */
+    }
   </style>
 </head>
 <body>
   <h3>Bulk Sender</h3>
+  
+  <!-- This is the new element to display the count -->
+  <p id="contactCount">Loading...</p>
+
   <button id="sendButton">Send Messages</button>
+  <button id="openDataPage">Load/Edit Contact List</button>
+
   <script src="popup.js"></script>
 </body>
 </html>

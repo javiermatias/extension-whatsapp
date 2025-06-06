@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Load Contact Data</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+    .instructions {
+        background-color: #e7f3fe;
+        border-left: 6px solid #2196F3;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    button {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #statusMessage {
+      margin-top: 15px;
+      text-align: center;
+      font-weight: bold;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>Load Numbers and Messages</h2>
+    
+    <div class="instructions">
+      <p><strong>Accepted Formats (one entry per line):</strong></p>
+      <ol>
+        <li>Copy/paste from Excel (Number and Message columns).</li>
+        <li>Paste from a text file: <code>Number Message</code></li>
+        <li>Type manually: <code>Number Message</code></li>
+      </ol>
+    </div>
+    
+    <label for="dataInput">Paste or Type Data Here:</label>
+    <textarea id="dataInput" rows="15" placeholder="From Excel (Tab separated):
+1234567890	Hello from Excel!
+
+From TXT/Manual (Space separated):
+0987654321 Hi, this message has spaces."></textarea>
+    
+    <button id="saveButton">Save to Local Storage</button>
+
+    <div id="statusMessage"></div>
+  </div>
+
+  <script src="data.js"></script>
+</body>
+</html>

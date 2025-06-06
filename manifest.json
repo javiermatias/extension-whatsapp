@@ -8,6 +8,8 @@
     "scripting",
     "storage"
   ],
+  "options_page": "data.html",
+  "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html"
   }, 
@@ -17,4 +19,5 @@
       "js": ["content.js"]
     }
   ]
+
 }
