@@ -1,43 +1,108 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Send Messages</title>
+  <title>Smart Sender</title>
   <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      padding: 15px; 
-      width: 250px;
+    /* --- CSS Variables for easy theming --- */
+    :root {
+      --bg-color: #f7f9fc;
+      --text-color: #2d3748;
+      --primary-color: #4299e1;
+      --primary-hover-color: #2b6cb0;
+      --secondary-color: #e2e8f0;
+      --secondary-hover-color: #cbd5e0;
+      --panel-bg-color: #ffffff;
+      --border-color: #e2e8f0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      width: 280px; /* Slightly wider for better spacing */
+      padding: 20px;
+      margin: 0;
+      background-color: var(--bg-color);
+      color: var(--text-color);
       text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 15px; /* Creates space between all child elements */
     }
+
     h3 {
-      margin-top: 0;
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
     }
+
+    /* --- Panel for displaying data --- */
+    .info-panel {
+      font-size: 14px;
+      font-weight: 500;
+      background-color: var(--panel-bg-color);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    
     #contactCount {
-        font-size: 16px;
+        color: var(--primary-color);
         font-weight: bold;
-        color: #333;
-        background-color: #f0f0f0;
-        padding: 10px;
-        border-radius: 5px;
-        margin-bottom: 15px;
     }
-    button { 
-      padding: 10px 15px; 
+
+    /* --- General Button Styling --- */
+    .btn {
+      padding: 12px 18px;
       width: 100%;
       cursor: pointer;
       font-size: 14px;
-      margin-bottom: 8px; /* Add some space between buttons */
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+      box-sizing: border-box; /* Ensures padding doesn't affect width */
+    }
+
+    .btn:hover {
+      transform: translateY(-1px); /* Subtle lift on hover */
+    }
+
+    .btn:active {
+      transform: translateY(0); /* Click effect */
+    }
+
+    /* --- Primary Button (Send) --- */
+    #sendButton {
+      background-color: var(--primary-color);
+      color: white;
+      box-shadow: 0 4px 6px -1px rgba(66, 153, 225, 0.4);
+    }
+    
+    #sendButton:hover {
+      background-color: var(--primary-hover-color);
+    }
+
+    /* --- Secondary Button (Load) --- */
+    #openDataPage {
+      background-color: var(--secondary-color);
+      color: var(--text-color);
+    }
+
+    #openDataPage:hover {
+      background-color: var(--secondary-hover-color);
     }
   </style>
 </head>
 <body>
-  <h3>Bulk Sender</h3>
-  
-  <!-- This is the new element to display the count -->
-  <p id="contactCount">Loading...</p>
+  <h3>Smart Sender</h3>
 
-  <button id="sendButton">Send Messages</button>
-  <button id="openDataPage">Load/Edit Contact List</button>
+  <!-- Info panels for data display -->
+  <div class="info-panel" id="contactCount">Loading contacts...</div>
+  <div class="info-panel" id="contactSend">Ready to send.</div>
+
+  <!-- Action buttons -->
+  <button id="sendButton" class="btn">Send Messages</button>
+  <button id="openDataPage" class="btn">Load Contact List</button>
 
   <script src="popup.js"></script>
 </body>

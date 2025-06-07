@@ -12,12 +12,6 @@ document.getElementById("sendButton").addEventListener("click", async () => {
   }
 });
 
-
-
-
-
-
-
 function triggerSendingProcess() {
   window.dispatchEvent(new CustomEvent("trigger-sending"));
 }
@@ -28,13 +22,17 @@ document.getElementById('openDataPage').addEventListener('click', () => {
 
  document.addEventListener('DOMContentLoaded', function() {
   const countElement = document.getElementById('contactCount');
+  const sendElement = document.getElementById('contactSend');
   chrome.storage.local.get(['contactList'], function(result) {
     let count = 0;
+    let countSend = 0;
     // Check if the result has the contactList and if it's an array
     if (result.contactList && Array.isArray(result.contactList)) {
-      count = result.contactList.length;
+      count = result.contactList.length;      
+      countSend = result.contactList.filter(contact => contact.sent).length;
     }
     // Update the text content of our <p> element
     countElement.textContent = `Contacts Loaded: ${count}`;
+    sendElement.textContent = `Send Messages: ${countSend}`;
   });
  });

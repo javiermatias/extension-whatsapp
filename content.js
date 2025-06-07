@@ -126,6 +126,7 @@ window.addEventListener("trigger-sending", async () => {
 async function sendMessage(number, message) {
     // This function will now throw an error on failure instead of returning true/false.
     // This makes the main loop's try/catch block more effective.
+
     
     // 1. Start new chat
     const newChatButton = document.querySelector('a[data-e2e-start-button]');
@@ -134,28 +135,34 @@ async function sendMessage(number, message) {
     await sleep(2000);
 
     // 2. Enter number
-    const input = document.querySelector("input[placeholder='Type a name, phone number, or email']");
+    //const input = document.querySelector("input[placeholder='Type a name, phone number, or email']");
+    const input = document.querySelector("input");
     if (!input) throw new Error("Could not find number input field.");
     input.focus();
     input.value = number;
     input.dispatchEvent(new Event("input", { bubbles: true }));
-    await sleep(2000);
+    await sleep(3000);
 
     // Click the conversation item
-    const conversationItem = document.querySelector("mws-conversation-list-item");
+    const conversationItem = document.querySelector("span.anon-contact-name");
     if (!conversationItem) throw new Error(`Number not found or invalid.`);
     conversationItem.click();
-    await sleep(2500);
+    await sleep(5000);
 
     // 3. Write and send message
     const textArea = document.querySelector("textarea.input");
     if (!textArea) throw new Error("Could not find message text area.");
     textArea.value = message;
     textArea.dispatchEvent(new Event("input", { bubbles: true }));
-    await sleep(1500);
+    await sleep(2000);
 
-    const sendButton = document.querySelector("mws-message-send-button");
+    const xpath = "//mws-message-send-button[@class='floating-button']";
+    const sendButton = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
     if (!sendButton) throw new Error("Could not find send button.");
-    sendButton.click();
+    const event = new CustomEvent("sendClicked", {
+      bubbles: true,
+      cancelable: true,
+    });
+    sendButton.dispatchEvent(event);
     await sleep(3000);
 }
