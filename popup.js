@@ -23,6 +23,18 @@ document.getElementById('openDataPage').addEventListener('click', () => {
  document.addEventListener('DOMContentLoaded', function() {
   const countElement = document.getElementById('contactCount');
   const sendElement = document.getElementById('contactSend');
+  const openContactPageButton = document.getElementById('openContactPage'); // Get the new button
+
+    // Event listener for the "See Contact List" button
+    if (openContactPageButton) {
+      openContactPageButton.addEventListener('click', function() {
+        // Use the chrome.tabs API to create a new tab with your contacts page
+        chrome.tabs.create({
+          url: chrome.runtime.getURL('contacts.html')
+        });
+      });
+    }
+
   chrome.storage.local.get(['contactList'], function(result) {
     let count = 0;
     let countSend = 0;

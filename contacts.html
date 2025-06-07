@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact List</title>
+  <style>
+    :root {
+      --bg-color: #f7f9fc;
+      --text-color: #2d3748;
+      --header-bg-color: #e2e8f0;
+      --border-color: #cbd5e0;
+      --row-hover-color: #edf2f7;
+      --status-sent-bg: #c6f6d5;
+      --status-sent-text: #2f855a;
+      --status-pending-bg: #feebc8;
+      --status-pending-text: #975a16;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+    }
+
+    /* Message for when no contacts are loaded */
+    #noContactsMessage {
+      text-align: center;
+      font-size: 1.1rem;
+      color: #718096;
+      padding: 3rem 1rem;
+      border: 2px dashed var(--border-color);
+      border-radius: 8px;
+    }
+
+    /* Table Styling */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    thead th {
+      background-color: var(--header-bg-color);
+      font-weight: 600;
+      color: #4a5568;
+    }
+
+    tbody tr:hover {
+      background-color: var(--row-hover-color);
+    }
+
+    /* Styling for the status "pills" */
+    .status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px; /* Pill shape */
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    .status-sent {
+      background-color: var(--status-sent-bg);
+      color: var(--status-sent-text);
+    }
+
+    .status-pending {
+      background-color: var(--status-pending-bg);
+      color: var(--status-pending-text);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Loaded Contact List</h1>
+    
+    <!-- This container will be filled by JavaScript -->
+    <div id="contactTableContainer"></div>
+
+    <!-- This message will show if no contacts are found -->
+    <div id="noContactsMessage" style="display: none;">
+      <p>No contacts have been loaded yet.</p>
+      <p>Please use the "Load Contact List" button in the extension popup.</p>
+    </div>
+  </div>
+
+  <script src="contacts.js"></script>
+</body>
+</html>
