@@ -3,7 +3,6 @@
 <head>
   <title>Bulk Sender</title>
   <style>
-    /* Use the same modern style from the previous answer */
     :root {
       --bg-color: #f7f9fc;
       --text-color: #2d3748;
@@ -13,6 +12,9 @@
       --secondary-hover-color: #cbd5e0;
       --panel-bg-color: #ffffff;
       --border-color: #e2e8f0;
+      /* --- NEW: Added colors for the stop button --- */
+      --danger-color: #e53e3e;
+      --danger-hover-color: #c53030;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -35,16 +37,34 @@
     .btn {
       padding: 12px 18px; width: 100%; cursor: pointer; font-size: 14px;
       font-weight: 600; border: none; border-radius: 8px;
-      transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+      transition: background-color 0.2s ease-in-out, transform 0.1s ease, box-shadow 0.2s ease-in-out;
       box-sizing: border-box;
     }
     .btn:hover { transform: translateY(-1px); }
     .btn:active { transform: translateY(0); }
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    /* Original Send Button Style */
     #sendButton {
       background-color: var(--primary-color); color: white;
       box-shadow: 0 4px 6px -1px rgba(66, 153, 225, 0.4);
     }
     #sendButton:hover { background-color: var(--primary-hover-color); }
+
+    /* --- NEW: Styles for the Stop Button --- */
+    /* This style will apply when the button has BOTH the id and the class */
+    #sendButton.stop-button {
+      background-color: var(--danger-color);
+      box-shadow: 0 4px 6px -1px rgba(229, 62, 62, 0.4);
+    }
+    #sendButton.stop-button:hover {
+      background-color: var(--danger-hover-color);
+    }
+    /* --- End of new styles --- */
+
     #openDataPage, #openContactPage {
       background-color: var(--secondary-color); color: var(--text-color);
     }
@@ -61,7 +81,6 @@
 
   <button id="sendButton" class="btn">Send Messages</button>
   <button id="openDataPage" class="btn">Load Contact List</button>
-  <!-- The new button -->
   <button id="openContactPage" class="btn">See Contact List</button>
 
   <script src="popup.js"></script>
