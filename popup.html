@@ -1,87 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Bulk Sender</title>
-  <style>
-    :root {
-      --bg-color: #f7f9fc;
-      --text-color: #2d3748;
-      --primary-color: #4299e1;
-      --primary-hover-color: #2b6cb0;
-      --secondary-color: #e2e8f0;
-      --secondary-hover-color: #cbd5e0;
-      --panel-bg-color: #ffffff;
-      --border-color: #e2e8f0;
-      /* --- NEW: Added colors for the stop button --- */
-      --danger-color: #e53e3e;
-      --danger-hover-color: #c53030;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      width: 280px;
-      padding: 20px;
-      margin: 0;
-      background-color: var(--bg-color);
-      color: var(--text-color);
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
-    h3 { margin: 0; font-size: 20px; font-weight: 600; }
-    .info-panel {
-      font-size: 14px; font-weight: 500; background-color: var(--panel-bg-color);
-      padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    }
-    .btn {
-      padding: 12px 18px; width: 100%; cursor: pointer; font-size: 14px;
-      font-weight: 600; border: none; border-radius: 8px;
-      transition: background-color 0.2s ease-in-out, transform 0.1s ease, box-shadow 0.2s ease-in-out;
-      box-sizing: border-box;
-    }
-    .btn:hover { transform: translateY(-1px); }
-    .btn:active { transform: translateY(0); }
-    .btn:disabled {
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-
-    /* Original Send Button Style */
-    #sendButton {
-      background-color: var(--primary-color); color: white;
-      box-shadow: 0 4px 6px -1px rgba(66, 153, 225, 0.4);
-    }
-    #sendButton:hover { background-color: var(--primary-hover-color); }
-
-    /* --- NEW: Styles for the Stop Button --- */
-    /* This style will apply when the button has BOTH the id and the class */
-    #sendButton.stop-button {
-      background-color: var(--danger-color);
-      box-shadow: 0 4px 6px -1px rgba(229, 62, 62, 0.4);
-    }
-    #sendButton.stop-button:hover {
-      background-color: var(--danger-hover-color);
-    }
-    /* --- End of new styles --- */
-
-    #openDataPage, #openContactPage {
-      background-color: var(--secondary-color); color: var(--text-color);
-    }
-    #openDataPage:hover, #openContactPage:hover {
-      background-color: var(--secondary-hover-color);
-    }
-  </style>
+  <title>SMS Sender</title>
+  <!-- Link to the external stylesheet -->
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <h3>Bulk Sender</h3>
+  <h3>SMS Sender</h3>
 
   <div class="info-panel" id="contactCount">Loading...</div>
   <div class="info-panel" id="contactSend">Ready to send.</div>
 
-  <button id="sendButton" class="btn">Send Messages</button>
-  <button id="openDataPage" class="btn">Load Contact List</button>
-  <button id="openContactPage" class="btn">See Contact List</button>
+  <!-- Note the new classes for styling -->
+  <button id="sendButton" class="btn btn-primary">Send Messages</button>
+  <button id="openDataPage" class="btn btn-secondary">Load Contact List</button>
+  <button id="openContactPage" class="btn btn-secondary">See Contact List</button>
+  <button id="helpButton" class="btn btn-secondary">Help</button>
 
   <script src="popup.js"></script>
 </body>

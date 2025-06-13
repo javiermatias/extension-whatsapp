@@ -4,6 +4,7 @@ const countElement = document.getElementById('contactCount');
 const sendElement = document.getElementById('contactSend');
 const openDataPageButton = document.getElementById('openDataPage');
 const openContactPageButton = document.getElementById('openContactPage');
+const helpButton = document.getElementById('helpButton'); // <-- ADD THIS LINE
 
 // --- NEW: Function to update button text and state based on storage ---
 async function updateButtonState() {
@@ -99,4 +100,15 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   }
+
+  // --- ADD THIS NEW BLOCK FOR THE HELP BUTTON ---
+  if (helpButton) {
+    helpButton.addEventListener('click', function() {
+      // Open the help.html page in a new tab
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('help.html')
+      });
+    });
+  }
+  // --- END OF NEW BLOCK ---
 });

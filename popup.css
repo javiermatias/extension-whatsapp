@@ -1,0 +1,106 @@
+/* popup.css */
+
+/* --- Color & Font Variables --- */
+:root {
+    --bg-color: #f7f9fc;
+    --text-color: #2d3748;
+    --primary-color: #4299e1; /* Blue for primary actions */
+    --primary-hover-color: #2b6cb0;
+    --secondary-color: #e2e8f0; /* Grey for secondary actions */
+    --secondary-hover-color: #cbd5e0;
+    --danger-color: #e53e3e; /* Red for stop/danger actions */
+    --danger-hover-color: #c53030;
+    --panel-bg-color: #ffffff;
+    --border-color: #e2e8f0;
+  }
+  
+  /* --- General Body & Layout --- */
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    width: 280px;
+    padding: 20px;
+    margin: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Provides consistent spacing between all elements */
+  }
+  
+  h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  
+  /* --- Info Panels --- */
+  .info-panel {
+    font-size: 14px;
+    font-weight: 500;
+    background-color: var(--panel-bg-color);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* --- General Button Styles --- */
+  .btn {
+    padding: 12px 18px;
+    width: 100%;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    transition: background-color 0.2s ease-in-out, transform 0.1s ease, box-shadow 0.2s ease-in-out;
+    box-sizing: border-box;
+  }
+  
+  .btn:hover {
+    transform: translateY(-1px); /* Subtle lift effect on hover */
+  }
+  
+  .btn:active {
+    transform: translateY(0); /* Button returns to original position on click */
+  }
+  
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+  
+  /* --- Specific Button Type Styles --- */
+  
+  /* Primary Button: For the main action, "Send Messages" */
+  .btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(66, 153, 225, 0.4);
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--primary-hover-color);
+  }
+  
+  /* Secondary Buttons: For all other actions like "Load", "See List", and "Help" */
+  .btn-secondary {
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+  }
+  
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--secondary-hover-color);
+  }
+  
+  /* Modifier for Stop State: Overrides other colors when applied */
+  .btn.stop-button {
+    background-color: var(--danger-color);
+    color: white; /* Ensure text is readable on red */
+    box-shadow: 0 4px 6px -1px rgba(229, 62, 62, 0.4);
+  }
+  
+  .btn.stop-button:hover:not(:disabled) {
+    background-color: var(--danger-hover-color);
+  }
