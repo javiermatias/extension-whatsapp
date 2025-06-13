@@ -1,114 +1,108 @@
-// Get all necessary elements from the DOM once
+// --- Get all necessary elements from the DOM ---
 const sendButton = document.getElementById("sendButton");
 const countElement = document.getElementById('contactCount');
 const sendElement = document.getElementById('contactSend');
 const openDataPageButton = document.getElementById('openDataPage');
 const openContactPageButton = document.getElementById('openContactPage');
-const helpButton = document.getElementById('helpButton'); // <-- ADD THIS LINE
+const helpButton = document.getElementById('helpButton');
 
-// --- NEW: Function to update button text and state based on storage ---
+// --- Function to update button text and state based on storage ---
+// Uses async/await for cleaner syntax.
 async function updateButtonState() {
-  // Check the 'isSending' flag in storage
-  chrome.storage.local.get(['isSending'], (result) => {
-    if (result.isSending) {
-      // If a process is running, show the "Stop" button
-      sendButton.textContent = "Stop Process";
-      sendButton.classList.add('stop-button'); // Optional: for CSS styling
-      sendButton.disabled = false; // Ensure button is enabled
-    } else {
-      // If no process is running, show the "Send" button
-      sendButton.textContent = "Send Messages";
-      sendButton.classList.remove('stop-button');
-      sendButton.disabled = false;
-    }
-  });
+  const { isSending } = await chrome.storage.local.get('isSending');
+  if (isSending) {
+    sendButton.textContent = "Stop Process";
+    sendButton.classList.add('stop-button');
+    sendButton.disabled = false;
+  } else {
+    sendButton.textContent = "Send Messages";
+    sendButton.classList.remove('stop-button');
+    sendButton.disabled = false;
+  }
 }
 
-// --- NEW: Listen for messages from the content script ---
-// This is how we know the process has finished or been stopped on its own.
+// --- Listen for messages from the content script ---
+// This is now simpler as per your request.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.status === 'process_finished') {
-    // The process on the content page has ended, so update our state
-    chrome.storage.local.set({ isSending: false }, () => {
-      updateButtonState(); // Reset the button to "Send"
-    });
+    // The content script has already updated the storage.
+    // The popup's only job is to refresh its button to reflect that change.
+    console.log("Popup received 'process_finished' message. Updating UI.");
+    updateButtonState();
   }
+  return true; // Keep message channel open for async responses if needed
 });
 
-
-// --- MODIFIED: Main click listener for the send/stop button ---
+// --- Main click listener for the send/stop button ---
+// Refactored with async/await and a try/catch block for robust error handling.
 sendButton.addEventListener("click", async () => {
-  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  if (!tab.url || !tab.url.startsWith("https://messages.google.com/")) {
-    alert("Please navigate to messages.google.com to use this feature.");
-    return;
-  }
+    if (!tab.url || !tab.url.startsWith("https://messages.google.com/")) {
+      alert("Please navigate to messages.google.com to use this feature.");
+      return;
+    }
 
-  // Check the current state to decide whether to send "start" or "stop"
-  chrome.storage.local.get(['isSending'], (result) => {
-    if (result.isSending) {
+    const { isSending } = await chrome.storage.local.get('isSending');
+
+    if (isSending) {
       // --- If it's currently sending, send a STOP command ---
-      console.log("Sending 'stop' command to content script.");
-      chrome.tabs.sendMessage(tab.id, { command: "stop_sending" });
+      console.log("Popup: Sending 'stop' command.");
       sendButton.textContent = "Stopping...";
       sendButton.disabled = true; // Briefly disable to prevent multiple clicks
+      await chrome.tabs.sendMessage(tab.id, { command: "stop_sending" });
+      // The content script will handle resetting state and notifying us back.
     } else {
       // --- If it's not sending, send a START command ---
-      console.log("Sending 'start' command to content script.");
-      // First, set the state to "sending"
-      chrome.storage.local.set({ isSending: true }, () => {
-        // Then, send the message to start the process
-        chrome.tabs.sendMessage(tab.id, { command: "start_sending" });
-        // Finally, update the button UI immediately
-        updateButtonState();
-      });
+      console.log("Popup: Sending 'start' command.");
+      await chrome.storage.local.set({ isSending: true });
+      updateButtonState(); // Update UI immediately
+      await chrome.tabs.sendMessage(tab.id, { command: "start_sending" });
     }
-  });
+  } catch (error) {
+    // THIS IS THE FIX for "Receiving end does not exist"
+    if (error.message.includes("Could not establish connection")) {
+      alert("Connection failed. Please RELOAD the Google Messages tab and try again.");
+      console.error("Connection Error:", error.message);
+      // CRITICAL: Reset the state since the 'start' command failed
+      await chrome.storage.local.set({ isSending: false });
+      updateButtonState(); // Update the button back to "Send"
+    } else {
+      // Handle any other unexpected errors
+      console.error("An unexpected error occurred:", error);
+      alert("An unexpected error occurred. Check the console for details.");
+    }
+  }
 });
 
-
-// --- MODIFIED: DOMContentLoaded listener ---
-// This now handles all initialization logic for the popup.
-document.addEventListener('DOMContentLoaded', function() {
+// --- Initialization logic when the popup is opened ---
+// Also refactored to use async/await.
+document.addEventListener('DOMContentLoaded', async function() {
   // 1. Set the correct initial state of the Send/Stop button
-  updateButtonState();
+  await updateButtonState();
 
-  // 2. Load and display contact counts (your original code)
-  chrome.storage.local.get(['contactList'], function(result) {
-    let count = 0;
-    let countSend = 0;
-    if (result.contactList && Array.isArray(result.contactList)) {
-      count = result.contactList.length;
-      countSend = result.contactList.filter(contact => contact.sent).length;
-    }
-    countElement.textContent = `Contacts Loaded: ${count}`;
-    sendElement.textContent = `Sent Messages: ${countSend}`;
+  // 2. Load and display contact counts
+  const { contactList } = await chrome.storage.local.get('contactList');
+  let count = 0;
+  let countSend = 0;
+  if (contactList && Array.isArray(contactList)) {
+    count = contactList.length;
+    countSend = contactList.filter(contact => contact.sent).length;
+  }
+  countElement.textContent = `Contacts Loaded: ${count}`;
+  sendElement.textContent = `Sent Messages: ${countSend}`;
+
+  // 3. Set up other button listeners (using optional chaining ?. for safety)
+  openDataPageButton?.addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
   });
 
-  // 3. Set up other button listeners (your original code)
-  if (openDataPageButton) {
-    openDataPageButton.addEventListener('click', () => {
-      chrome.runtime.openOptionsPage();
-    });
-  }
+  openContactPageButton?.addEventListener('click', function() {
+    chrome.tabs.create({ url: chrome.runtime.getURL('contacts.html') });
+  });
 
-  if (openContactPageButton) {
-    openContactPageButton.addEventListener('click', function() {
-      chrome.tabs.create({
-        url: chrome.runtime.getURL('contacts.html')
-      });
-    });
-  }
-
-  // --- ADD THIS NEW BLOCK FOR THE HELP BUTTON ---
-  if (helpButton) {
-    helpButton.addEventListener('click', function() {
-      // Open the help.html page in a new tab
-      chrome.tabs.create({
-        url: chrome.runtime.getURL('help.html')
-      });
-    });
-  }
-  // --- END OF NEW BLOCK ---
+  helpButton?.addEventListener('click', function() {
+    chrome.tabs.create({ url: chrome.runtime.getURL('help.html') });
+  });
 });

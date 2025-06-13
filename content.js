@@ -137,6 +137,8 @@ async function startSendingProcess() {
       // --- NEW: This block always runs, ensuring state is reset ---
       console.log("Process finished or stopped. Cleaning up.");
       window.isSendingMessages = false; // Allow a new process to start
+      await chrome.storage.local.set({ isSending: false });
+      console.log("✅ 'isSending' flag in chrome.storage has been set to false.");
       // Tell the popup that the process is over so it can reset its button
       chrome.runtime.sendMessage({ status: 'process_finished' });
     }
