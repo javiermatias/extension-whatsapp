@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Google Messages Bulk Sender",
+  "name": "SMS SENDER",
   "version": "1.0",
-  "description": "Sends a message to a list of numbers on messages.google.com.",
+  "description": "Sends a message to a list of numbers.",
   "permissions": [
     "activeTab",
     "scripting",
