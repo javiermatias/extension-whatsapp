@@ -7,8 +7,80 @@ window.isSendingMessages = false;
 // A simple helper function for delays
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// --- UI Functions (Progress Widget & Summary Report) ---
-// These functions remain unchanged.
+
+// =====================================================================
+// --- NEW: FREE TIER LIMITATION LOGIC ---
+// =====================================================================
+
+/**
+ * Creates a SHA-256 hash of a string. This is our signature function.
+ * @param {string} message - The string to hash.
+ * @returns {Promise<string>} The hexadecimal hash string.
+ */
+async function createSignature(message) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Checks if the user is allowed to send one more message based on the free tier limit.
+ * It handles new day roll-overs and verifies data integrity.
+ * @returns {Promise<boolean>} - True if sending is allowed, false otherwise.
+ */
+async function isAllowedToSend() {
+  const FREE_TIER_LIMIT = 5;
+  const { deviceId, dailyUsage } = await chrome.storage.local.get(['deviceId', 'dailyUsage']);
+
+  if (!deviceId) {
+    console.error("CRITICAL: Device ID not found. Cannot verify usage.");
+    alert("Extension error: Device ID is missing. Please try reinstalling the extension.");
+    return false;
+  }
+
+  const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+  if (!dailyUsage || dailyUsage.date !== today) {
+    // New day or first use. The count is effectively 0, which is less than the limit.
+    return true;
+  }
+
+  const expectedSignature = await createSignature(`${deviceId}:${dailyUsage.date}:${dailyUsage.count}`);
+  if (expectedSignature !== dailyUsage.signature) {
+    alert("Usage data has been corrupted. To prevent misuse, sending has been disabled. Please contact support or reinstall the extension.");
+    return false;
+  }
+
+  return dailyUsage.count < FREE_TIER_LIMIT;
+}
+
+/**
+ * Increments the daily message count and updates the signature in storage.
+ * This should be called ONLY AFTER a message is successfully sent.
+ */
+async function incrementUsageCount() {
+  const { deviceId, dailyUsage } = await chrome.storage.local.get(['deviceId', 'dailyUsage']);
+  const today = new Date().toISOString().split('T')[0];
+
+  let currentCount = (dailyUsage && dailyUsage.date === today) ? dailyUsage.count : 0;
+  const newCount = currentCount + 1;
+  const newSignature = await createSignature(`${deviceId}:${today}:${newCount}`);
+  
+  await chrome.storage.local.set({ 
+    dailyUsage: {
+      count: newCount,
+      date: today,
+      signature: newSignature
+    } 
+  });
+  console.log(`Usage incremented. New count for ${today}: ${newCount}`);
+}
+
+// =====================================================================
+// --- UI Functions (Progress, Summary & NEW Limit Modal) ---
+// =====================================================================
 function createProgressWidget() {
   if (document.getElementById("sender-progress-widget")) return;
   const widget = document.createElement("div");
@@ -40,6 +112,31 @@ function showSummaryReport(successes, failures) {
     report.innerHTML = `<h3 style="margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #eee;">Campaign Finished</h3><h4 style="margin: 10px 0 5px 0;">✅ Successful Sends (${successes.length})</h4><ul style="list-style-type: none; padding: 0; margin: 0 0 15px 0; max-height: 150px; overflow-y: auto; border: 1px solid #eee; padding: 5px;">${successItems}</ul><h4 style="margin: 10px 0 5px 0;">❌ Failed Sends (${failures.length})</h4><ul style="list-style-type: none; padding: 0; margin: 0 0 20px 0; max-height: 150px; overflow-y: auto; border: 1px solid #eee; padding: 5px;">${failureItems}</ul><button id="close-summary-btn" style="width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Close</button>`;
     document.body.appendChild(report);
     document.getElementById("close-summary-btn").addEventListener("click", () => { report.remove(); });
+}
+
+/**
+ * NEW: Displays a beautiful modal when the free tier limit is reached.
+ */
+function showLimitReachedModal() {
+  if (document.getElementById("sender-limit-modal")) return;
+  const modal = document.createElement("div");
+  modal.id = "sender-limit-modal";
+  modal.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; background-color: white; border-radius: 12px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 10001; font-family: Arial, sans-serif; text-align: center;";
+  
+  modal.innerHTML = `
+    <h2 style="color: #1a73e8; margin: 0 0 15px 0; font-size: 22px;">Daily Limit Reached</h2>
+    <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+      You've sent your 20 free messages for the day. Thank you for using our tool!
+    </p>
+    <div style="background-color: #f1f3f4; padding: 15px; border-radius: 8px;">
+      <h3 style="margin: 0 0 10px 0; color: #333;">Upgrade for Unlimited Sending</h3>
+      <p style="margin: 0; color: #555;">To send unlimited messages and support our development, please consider purchasing a license.</p>
+    </div>
+    <button id="close-limit-modal-btn" style="width: 100%; padding: 12px; margin-top: 20px; background-color: #1a73e8; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold;">Got it</button>
+  `;
+  
+  document.body.appendChild(modal);
+  document.getElementById("close-limit-modal-btn").addEventListener("click", () => modal.remove());
 }
 
 
@@ -106,6 +203,14 @@ async function startSendingProcess() {
           break; // Exit the loop
         }
         // -------------------------------------------------------------
+
+         // --- INTEGRATION POINT: Check permission before each send ---
+      const canSend = await isAllowedToSend();
+      if (!canSend) {
+        showLimitReachedModal();
+        break; // Stop the entire loop
+      }
+      // --- END INTEGRATION ---
 
         const contact = contactsToSend[i];
         const overallProgress = ((i + 1) / contactsToSend.length) * 100;
@@ -183,5 +288,9 @@ async function sendMessage(number, message) {
       cancelable: true,
     });
     sendButton.dispatchEvent(event);
+    
+    // --- INTEGRATION POINT: Increment count AFTER successful send ---
+     await incrementUsageCount();
+    // --- END INTEGRATION ---
     await sleep(3000);
 }

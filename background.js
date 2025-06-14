@@ -1,6 +1,21 @@
-// background.js - Combined Service Worker
 
-// --- Main Function to Update the Badge Text ---
+// background.js
+
+// This event runs once when the extension is first installed.
+chrome.runtime.onInstalled.addListener(async (details) => {
+  if (details.reason === 'install') {
+    // Check if a deviceId already exists to be safe.
+    const { deviceId } = await chrome.storage.local.get('deviceId');
+    if (!deviceId) {
+      // Generate a new unique ID and store it. This is the user's permanent "fingerprint".
+      const newDeviceId = crypto.randomUUID();
+      await chrome.storage.local.set({ deviceId: newDeviceId });
+      console.log('Extension installed. New unique Device ID created:', newDeviceId);
+    }
+  }
+});
+
+/*// --- Main Function to Update the Badge Text ---
 async function updateBadge() {
   try {
     const result = await chrome.storage.local.get(['contactList']);
@@ -70,4 +85,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Return true to indicate that we will send a response asynchronously
     return true; 
   }
-});
+}); */
