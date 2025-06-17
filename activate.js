@@ -4,14 +4,12 @@
 const licenseKeyInput = document.getElementById('licenseKeyInput');
 const activateButton = document.getElementById('activateButton');
 const statusMessage = document.getElementById('statusMessage');
+const licenseStatusDisplay = document.getElementById('licenseStatusDisplay');
+const licenseStatusTitle = document.getElementById('licenseStatusTitle');
+const currentLicenseInfo = document.getElementById('currentLicenseInfo');
 
 // --- Helper Functions ---
 
-/**
- * Creates a SHA-256 hash of a string. This is our signature function.
- * @param {string} message - The string to hash.
- * @returns {Promise<string>} The hexadecimal hash string.
- */
 async function createSignature(message) {
   const encoder = new TextEncoder();
   const data = encoder.encode(message);
@@ -20,15 +18,52 @@ async function createSignature(message) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Displays a feedback message to the user.
- * @param {string} text - The message to show.
- * @param {'success' | 'error' | 'loading'} type - The type of message for styling.
- */
 function displayMessage(text, type) {
   statusMessage.textContent = text;
-  statusMessage.className = 'status-message'; // Reset classes
+  statusMessage.className = 'status-message';
   statusMessage.classList.add(`status-${type}`);
+}
+
+
+// --- NEW: Function to check and display the current license status ---
+
+async function checkAndDisplayCurrentLicense() {
+  const { deviceId, license } = await chrome.storage.local.get(['deviceId', 'license']);
+
+  if (!license) {
+    licenseStatusDisplay.className = 'license-status status-inactive';
+    licenseStatusTitle.textContent = 'No Active License';
+    currentLicenseInfo.textContent = 'You are currently on the free plan with a daily message limit.';
+    return;
+  }
+
+  // Verify the stored license data
+  const expectedSignature = await createSignature(`${deviceId}:${license.expires}`);
+  if (expectedSignature !== license.signature) {
+    licenseStatusDisplay.className = 'license-status status-error';
+    licenseStatusTitle.textContent = 'License Error';
+    currentLicenseInfo.textContent = 'Your license data appears to be corrupted. Please reactivate or contact support.';
+    return;
+  }
+
+  // Calculate remaining days
+  const expiryDate = new Date(license.expires);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize today's date to the beginning of the day
+
+  if (expiryDate < today) {
+    licenseStatusDisplay.className = 'license-status status-inactive';
+    licenseStatusTitle.textContent = 'License Expired';
+    currentLicenseInfo.textContent = `Your license expired on ${expiryDate.toLocaleDateString()}.`;
+    return;
+  }
+  
+  const diffTime = expiryDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  licenseStatusDisplay.className = 'license-status status-active';
+  licenseStatusTitle.textContent = 'License is Active';
+  currentLicenseInfo.innerHTML = `Your premium features are unlocked. Your license will expire in <strong>${diffDays} day(s)</strong> on ${expiryDate.toLocaleDateString()}.`;
 }
 
 
@@ -36,20 +71,17 @@ function displayMessage(text, type) {
 
 async function handleActivation() {
   const licenseKey = licenseKeyInput.value.trim();
-
   if (!licenseKey) {
     displayMessage('Please enter a license key.', 'error');
     return;
   }
 
-  // Get the unique device ID from storage
   const { deviceId } = await chrome.storage.local.get('deviceId');
   if (!deviceId) {
     displayMessage('Critical error: Could not find device ID. Please reinstall the extension.', 'error');
     return;
   }
 
-  // Disable UI while processing
   activateButton.disabled = true;
   displayMessage('Connecting to activation server...', 'loading');
 
@@ -58,7 +90,7 @@ async function handleActivation() {
     const payload = {
       user: licenseKey,
       unique_id: deviceId,
-      token: "EMQzHBjq0YYpLHWWDjN-KGcVES4j-JYQ2FDHb6HjumFpQTbZclDMHIAmCULgK4Aa5pRSSs7f_OUB8mqQ" // Your provided token
+      token: "EMQzHBjq0YYpLHWWDjN-KGcVES4j-JYQ2FDHb6HjumFpQTbZclDMHIAmCULgK4Aa5pRSSs7f_OUB8mqQ"
     };
 
     const response = await fetch(url, {
@@ -67,45 +99,36 @@ async function handleActivation() {
       body: JSON.stringify(payload)
     });
 
-    if (!response.ok) {
-      throw new Error(`Server error: Status ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`Server error: Status ${response.status}`);
     const result = await response.json();
 
-    // --- Process Server Response ---
     if (result.activate === true && result.dateexpiration) {
-      // SUCCESS: Save the license securely with a signature
       const dataToSign = `${deviceId}:${result.dateexpiration}`;
       const signature = await createSignature(dataToSign);
-
-      const licenseData = {
-        expires: result.dateexpiration,
-        signature: signature
-      };
       
-      await chrome.storage.local.set({ license: licenseData });
+      await chrome.storage.local.set({ license: { expires: result.dateexpiration, signature: signature } });
       
-      // Format date for display
-      const expiryDate = new Date(result.dateexpiration).toLocaleDateString();
-      displayMessage(`Success! Your license is active until ${expiryDate}.`, 'success');
+      displayMessage('Activation successful!', 'success');
+      // **UPDATE**: Refresh the status display after successful activation
+      await checkAndDisplayCurrentLicense();
+      licenseKeyInput.value = ''; // Clear the input field
 
     } else {
-      // FAILURE: The server said the key is invalid
       displayMessage('Activation failed. The license key appears to be invalid or has expired.', 'error');
     }
 
   } catch (error) {
-    // ERROR: Network or other fetch-related error
     console.error('Activation Error:', error);
     displayMessage('An error occurred. Please check your internet connection and try again.', 'error');
   } finally {
-    // Re-enable the button regardless of outcome
     activateButton.disabled = false;
   }
 }
 
+
 // --- Event Listeners ---
+// Run the check when the page is loaded
+document.addEventListener('DOMContentLoaded', checkAndDisplayCurrentLicense);
 activateButton.addEventListener('click', handleActivation);
 licenseKeyInput.addEventListener('keypress', (event) => {
   if (event.key === 'Enter') {

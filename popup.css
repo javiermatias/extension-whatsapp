@@ -104,3 +104,34 @@
   .btn.stop-button:hover:not(:disabled) {
     background-color: var(--danger-hover-color);
   }
+
+  /* --- NEW: Styles for the Icon Button --- */
+  .icon-btn {
+  position: absolute;
+  top: 15px; /* Adjust to align vertically */
+  right: 15px; /* Adjust to align horizontally */
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%; /* Makes the hover background circular */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+ }
+
+ .icon-btn:hover {
+  background-color: #e2e8f0; /* Use your secondary color for hover */
+ }
+
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+  color: #888; /* A neutral grey color for the icon */
+  transition: color 0.2s ease;
+}
+
+.icon-btn:hover svg {
+  color: #2d3748; /* Darken the icon color on hover */
+}

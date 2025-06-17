@@ -100,3 +100,52 @@ header p {
     background-color: #f1f3f4;
     color: #5f6368;
 }
+
+/* Add these new rules to your existing activate.css */
+
+.license-status {
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border: 1px solid #e0e0e0;
+    text-align: left;
+}
+
+.license-status h2 {
+    margin: 0 0 10px 0;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.license-status p {
+    margin: 0;
+    font-size: 1em;
+    font-weight: 400;
+}
+
+/* Style for when the license is active */
+.license-status.status-active {
+    background-color: #e6f4ea;
+    border-color: #34a853;
+}
+.license-status.status-active h2 {
+    color: #34a853;
+}
+
+/* Style for when there is no license or it's expired */
+.license-status.status-inactive {
+    background-color: #f1f3f4;
+    border-color: #dadce0;
+}
+.license-status.status-inactive h2 {
+    color: #5f6368;
+}
+
+/* Style for a corrupted/tampered license */
+.license-status.status-error {
+    background-color: #fce8e6;
+    border-color: #ea4335;
+}
+.license-status.status-error h2 {
+    color: #ea4335;
+}
