@@ -4,7 +4,9 @@ const countElement = document.getElementById('contactCount');
 const sendElement = document.getElementById('contactSend');
 const openDataPageButton = document.getElementById('openDataPage');
 const openContactPageButton = document.getElementById('openContactPage');
+const openActivate = document.getElementById('openActivate');
 const helpButton = document.getElementById('helpButton');
+//openActivate
 
 // --- Function to update button text and state based on storage ---
 // Uses async/await for cleaner syntax.
@@ -101,6 +103,11 @@ document.addEventListener('DOMContentLoaded', async function() {
   openContactPageButton?.addEventListener('click', function() {
     chrome.tabs.create({ url: chrome.runtime.getURL('contacts.html') });
   });
+
+  openActivate?.addEventListener('click', function() {
+    chrome.tabs.create({ url: chrome.runtime.getURL('activate.html') });
+  });
+  
 
   helpButton?.addEventListener('click', function() {
     chrome.tabs.create({ url: chrome.runtime.getURL('help.html') });

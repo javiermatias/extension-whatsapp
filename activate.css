@@ -1,0 +1,102 @@
+/* activate.css */
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f4f7f9;
+    color: #333;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 450px;
+    width: 90%;
+    background-color: #ffffff;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+header h1 {
+    color: #1a73e8;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+header p {
+    color: #555;
+    font-size: 1em;
+    line-height: 1.6;
+    margin-bottom: 30px;
+}
+
+.activation-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#licenseKeyInput {
+    width: 100%;
+    padding: 15px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-sizing: border-box;
+    transition: border-color 0.3s;
+}
+
+#licenseKeyInput:focus {
+    outline: none;
+    border-color: #1a73e8;
+}
+
+#activateButton {
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    background-color: #1a73e8;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#activateButton:hover:not(:disabled) {
+    background-color: #155ab6;
+}
+
+#activateButton:disabled {
+    background-color: #a0aec0;
+    cursor: not-allowed;
+}
+
+.status-message {
+    margin-top: 20px;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    display: none; /* Hidden by default */
+}
+
+.status-success {
+    display: block;
+    background-color: #e6f4ea;
+    color: #34a853;
+}
+
+.status-error {
+    display: block;
+    background-color: #fce8e6;
+    color: #ea4335;
+}
+
+.status-loading {
+    display: block;
+    background-color: #f1f3f4;
+    color: #5f6368;
+}
