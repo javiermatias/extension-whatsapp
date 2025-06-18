@@ -86,10 +86,11 @@ async function handleActivation() {
   displayMessage('Connecting to activation server...', 'loading');
 
   try {
-    const url = 'https://ausentismos.online/paypal/activatechrome';
+    const url = 'https://ausentismos.online/paypal/activateChromeLicense';
     const payload = {
       user: licenseKey,
       unique_id: deviceId,
+      mex:false,
       token: "EMQzHBjq0YYpLHWWDjN-KGcVES4j-JYQ2FDHb6HjumFpQTbZclDMHIAmCULgK4Aa5pRSSs7f_OUB8mqQ"
     };
 
