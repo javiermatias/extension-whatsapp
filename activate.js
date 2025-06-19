@@ -79,9 +79,9 @@ async function handleActivation() {
 
   let { deviceId } = await chrome.storage.local.get('deviceId');
   if (!deviceId) {
-    //displayMessage('Critical error: Could not find device ID. Please reinstall the extension.', 'error');
-    //return;
-    deviceId = "notfound"
+    displayMessage('Critical error: Could not find device ID. Please reinstall the extension.', 'error');
+    return;
+    //deviceId = "notfound"
   }
 
   activateButton.disabled = true;

@@ -84,7 +84,7 @@ async function checkFreeTierDailyLimit() {
     return false;
   }
 
-  return dailyUsage.count < 5;
+  return dailyUsage.count < 20;
 }
 
 
