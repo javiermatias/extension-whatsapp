@@ -27,28 +27,6 @@ async function fetchLicenseStatus(userKey) {
 }
 
 
-
-/* async function fetchLicenseStatus(userKey) {
-  try {
-    const url = 'https://ausentismos.online/paypal/licensestatus';
-    const payload = {
-      user: userKey,
-      mex: false,
-      token: "EMQzHBjq0YYpLHWWDjN-KGcVES4j-JYQ2FDHb6HjumFpQTbZclDMHIAmCULgK4Aa5pRSSs7f_OUB8mqQ"
-    };
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!response.ok) return { dateexpiration: 0 };
-    return await response.json();
-  } catch (error) {
-    console.error('Network error while checking license status:', error);
-    return { dateexpiration: 0 };
-  }
-} */
-
 async function checkLicenseFree() {
   const { deviceId, license} =  await chrome.storage.local.get(['deviceId', 'license']);
   if (!license || !license.user) {
