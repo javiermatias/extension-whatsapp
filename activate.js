@@ -28,7 +28,7 @@ function displayMessage(text, type) {
 // --- NEW: Function to check and display the current license status ---
 
 async function checkAndDisplayCurrentLicense() {
-  const { deviceId, license } = await chrome.storage.local.get(['deviceId', 'license']);
+  const { deviceId, license, user } = await chrome.storage.local.get(['deviceId', 'license', 'user']);
 
   if (!license) {
     licenseStatusDisplay.className = 'license-status status-inactive';
@@ -62,7 +62,7 @@ async function checkAndDisplayCurrentLicense() {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   licenseStatusDisplay.className = 'license-status status-active';
-  licenseStatusTitle.textContent = 'License is Active';
+  licenseStatusTitle.textContent = `License user: ${license.user}`;
   currentLicenseInfo.innerHTML = `Your premium features are unlocked. Your license will expire in <strong>${diffDays} day(s)</strong> on ${expiryDate.toLocaleDateString()}.`;
 }
 
@@ -107,7 +107,7 @@ async function handleActivation() {
       const dataToSign = `${deviceId}:${result.dateexpiration}`;
       const signature = await createSignature(dataToSign);
       
-      await chrome.storage.local.set({ license: { expires: result.dateexpiration, signature: signature } });
+      await chrome.storage.local.set({ license: { expires: result.dateexpiration, signature: signature, user: licenseKey } });
       
       displayMessage('Activation successful!', 'success');
       // **UPDATE**: Refresh the status display after successful activation

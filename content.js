@@ -31,7 +31,7 @@ async function createSignature(message) {
  * @returns {Promise<boolean>} - True if sending is allowed, false otherwise.
  */
 async function isAllowedToSend() {
-  const FREE_TIER_LIMIT = 5;
+  const FREE_TIER_LIMIT = 20;
   const { deviceId, dailyUsage } = await chrome.storage.local.get(['deviceId', 'dailyUsage']);
 
   if (!deviceId) {
