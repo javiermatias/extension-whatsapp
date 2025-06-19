@@ -18,6 +18,7 @@ async function createSignature(message) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+
 function displayMessage(text, type) {
   statusMessage.textContent = text;
   statusMessage.className = 'status-message';
@@ -38,7 +39,7 @@ async function checkAndDisplayCurrentLicense() {
   }
 
   // Verify the stored license data
-  const expectedSignature = await createSignature(`${deviceId}:${license.expires}`);
+  const expectedSignature = await createSignature(`${deviceId}:${license.expires}:${license.user}`);
   if (expectedSignature !== license.signature) {
     licenseStatusDisplay.className = 'license-status status-error';
     licenseStatusTitle.textContent = 'License Error';
@@ -76,10 +77,11 @@ async function handleActivation() {
     return;
   }
 
-  const { deviceId } = await chrome.storage.local.get('deviceId');
+  let { deviceId } = await chrome.storage.local.get('deviceId');
   if (!deviceId) {
-    displayMessage('Critical error: Could not find device ID. Please reinstall the extension.', 'error');
-    return;
+    //displayMessage('Critical error: Could not find device ID. Please reinstall the extension.', 'error');
+    //return;
+    deviceId = "notfound"
   }
 
   activateButton.disabled = true;
@@ -104,7 +106,7 @@ async function handleActivation() {
     const result = await response.json();
 
     if (result.activate === true && result.dateexpiration) {
-      const dataToSign = `${deviceId}:${result.dateexpiration}`;
+      const dataToSign = `${deviceId}:${result.dateexpiration}:${licenseKey}`;
       const signature = await createSignature(dataToSign);
       
       await chrome.storage.local.set({ license: { expires: result.dateexpiration, signature: signature, user: licenseKey } });

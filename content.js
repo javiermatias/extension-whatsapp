@@ -1,22 +1,257 @@
-// --- Global Flags for State Management ---
-// NEW: This flag will be set to true by the popup to stop the process.
-window.shouldStop = false; 
-// This flag prevents multiple sending processes from running at once.
-window.isSendingMessages = false; 
+// content.js
 
-// A simple helper function for delays
+// --- Global Flags & Helpers ---
+window.shouldStop = false;
+window.isSendingMessages = false;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-
 // =====================================================================
-// --- NEW: FREE TIER LIMITATION LOGIC ---
+// --- PERMISSION & USAGE-TRACKING LOGIC (REFACTORED FOR EFFICIENCY) ---
 // =====================================================================
 
 /**
- * Creates a SHA-256 hash of a string. This is our signature function.
- * @param {string} message - The string to hash.
- * @returns {Promise<string>} The hexadecimal hash string.
+ * Calls your server to get the current status of a license key.
+ * @param {string} userKey - The license key stored for the user.
+ * @returns {Promise<{dateexpiration: string | 0}>} The server's response.
  */
+
+async function fetchLicenseStatus(userKey) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      { type: "CHECK_LICENSE", userKey },
+      (response) => {
+        resolve(response || { dateexpiration: 0 });
+      }
+    );
+  });
+}
+
+
+
+/* async function fetchLicenseStatus(userKey) {
+  try {
+    const url = 'https://ausentismos.online/paypal/licensestatus';
+    const payload = {
+      user: userKey,
+      mex: false,
+      token: "EMQzHBjq0YYpLHWWDjN-KGcVES4j-JYQ2FDHb6HjumFpQTbZclDMHIAmCULgK4Aa5pRSSs7f_OUB8mqQ"
+    };
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) return { dateexpiration: 0 };
+    return await response.json();
+  } catch (error) {
+    console.error('Network error while checking license status:', error);
+    return { dateexpiration: 0 };
+  }
+} */
+
+async function checkLicense() {
+  const { deviceId, license, user } = await chrome.storage.local.get(['deviceId', 'license', 'user']);
+  
+  
+  const expectedSignature = await createSignature(`${deviceId}:${license.expires}`);
+  if (expectedSignature !== license.signature) {
+
+    return;
+  }
+
+
+}
+
+/**
+ * The ONE-TIME check performed at the START of a sending process.
+ * Determines if the session is 'premium', 'expired', or 'free'.
+ * @returns {Promise<{status: 'premium' | 'free' | 'expired'}>}
+ */
+async function determineSessionStatus() {
+  const { license } = await chrome.storage.local.get('license');
+  if (!license || !license.user) {
+    return { status: 'free' };
+  }
+
+  const apiResponse = await fetchLicenseStatus(license.user);
+  if (!apiResponse.dateexpiration || apiResponse.dateexpiration === 0) {
+    return { status: 'free' };
+  }
+
+  const expiryDate = new Date(apiResponse.dateexpiration);
+  if (expiryDate >= new Date()) {
+    return { status: 'premium' };
+  } else {
+    return { status: 'expired' };
+  }
+}
+
+/**
+ * A LIGHTWEIGHT, LOCAL-ONLY check for the free tier limit.
+ * This is called inside the loop only for free tier users.
+ * @returns {Promise<boolean>}
+ */
+async function checkFreeTierDailyLimit() {
+  const { deviceId, dailyUsage } = await chrome.storage.local.get(['deviceId', 'dailyUsage']);
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  if (!dailyUsage || dailyUsage.date !== todayStr) return true;
+
+  // Verify signature to prevent tampering
+  const expectedSignature = await createSignature(`${deviceId}:${dailyUsage.date}:${dailyUsage.count}`);
+  if (expectedSignature !== dailyUsage.signature) {
+    alert("Usage data is corrupted. Sending disabled.");
+    return false;
+  }
+
+  return dailyUsage.count < 5;
+}
+
+
+// --- Message Listener ---
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.command === "start_sending") startSendingProcess();
+  if (message.command === "stop_sending" && window.isSendingMessages) {
+    window.shouldStop = true;
+    updateProgress("Stopping process...", -1, false);
+  }
+  if (message.command === "stop_sending" && !window.isSendingMessages) {
+    window.isSendingMessages = false;
+    chrome.storage.local.set({ isSending: false });
+    chrome.runtime.sendMessage({ status: 'process_finished' });
+  }
+  sendResponse({ status: "acknowledged" });
+  return true;
+});
+
+// =====================================================================
+// --- Main Sending Logic (Updated with Final Permission System) ---
+// =====================================================================
+async function startSendingProcess() {
+  if (window.isSendingMessages) {
+    alert("A sending process is already in progress.");
+    return;
+  }
+
+  // *** STEP 1: Perform the permission check ONCE before anything else ***
+  const session = await determineSessionStatus();
+
+  // *** STEP 2: Handle an expired license immediately and STOP ***
+  if (session.status === 'expired') {
+    showLicenseExpiredModal();
+    return; // Do not proceed
+  }
+
+  // --- If we get here, the user is either 'premium' or 'free' ---
+  window.isSendingMessages = true;
+  window.shouldStop = false;
+  
+  createProgressWidget();
+  updateProgress(session.status === 'premium' ? "Premium license active. Loading contacts..." : "Free tier active. Loading contacts...", 0);
+  
+  try {
+    const { contactList } = await chrome.storage.local.get('contactList');
+    if (!contactList) throw new Error("Could not load contacts.");
+
+    const contactsToSend = contactList.filter(c => !c.sent);
+    if (contactsToSend.length === 0) {
+      updateProgress("All contacts sent!", 100);
+      setTimeout(() => document.getElementById("sender-progress-widget")?.remove(), 4000);
+      return;
+    }
+
+    const successfullySent = [], failedToSend = [];
+    for (let i = 0; i < contactsToSend.length; i++) {
+      if (window.shouldStop) {
+        updateProgress(`Process stopped by user.`, -1, true);
+        break;
+      }
+      
+      if (session.status === 'free') {
+        const isAllowed = await checkFreeTierDailyLimit();
+        if (!isAllowed) {
+          showLimitReachedModal();
+          break;
+        }
+      }
+
+      const contact = contactsToSend[i];
+      const overallProgress = ((i + 1) / contactsToSend.length) * 100;
+      updateProgress(`Sending ${i + 1}/${contactsToSend.length} to ${contact.number}...`, overallProgress);
+
+      try {
+        await sendMessage(contact.number, contact.message);
+        successfullySent.push(contact);
+        
+        const index = contactList.findIndex(c => c.number === contact.number && c.message === contact.message);
+        if (index !== -1) contactList[index].sent = true;
+        await chrome.storage.local.set({ 'contactList': contactList });
+
+        if (session.status === 'free') {
+          await incrementUsageCount();
+        }
+
+      } catch (error) {
+        contact.error = error.message;
+        failedToSend.push(contact);
+        updateProgress(`Failed for ${contact.number}. Continuing...`, overallProgress, true);
+        await sleep(3000);
+      }
+    }
+    if (!window.shouldStop) showSummaryReport(successfullySent, failedToSend);
+
+  } catch (error) {
+    updateProgress(`Error: ${error.message}`, 0, true);
+  } finally {
+    window.isSendingMessages = false;
+    await chrome.storage.local.set({ isSending: false });
+    chrome.runtime.sendMessage({ status: 'process_finished' });
+  }
+}
+
+// --- Core sendMessage Function and other helpers (Paste your full functions here) ---
+async function sendMessage(number, message) {
+  // 1. Start new chat
+  const newChatButton = document.querySelector('a[data-e2e-start-button]');
+  if (!newChatButton) throw new Error("Could not find 'Start chat' button.");
+  newChatButton.click();
+  await sleep(2000);
+
+  // 2. Enter number
+  const input = document.querySelector("input");
+  if (!input) throw new Error("Could not find number input field.");
+  input.focus();
+  input.value = number;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await sleep(3000);
+
+  // Click the conversation item
+  const conversationItem = document.querySelector("span.anon-contact-name");
+  if (!conversationItem) throw new Error(`Number not found or invalid.`);
+  conversationItem.click();
+  await sleep(5000);
+
+  // 3. Write and send message
+  const textArea = document.querySelector("textarea.input");
+  if (!textArea) throw new Error("Could not find message text area.");
+  textArea.value = message;
+  textArea.dispatchEvent(new Event("input", { bubbles: true }));
+  await sleep(2000);
+
+  const xpath = "//mws-message-send-button[@class='floating-button']";
+  const sendButton = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+  if (!sendButton) throw new Error("Could not find send button.");
+  const event = new CustomEvent("sendClicked", {
+    bubbles: true,
+    cancelable: true,
+  });
+  sendButton.dispatchEvent(event);
+  
+  // --- INTEGRATION POINT: Increment count AFTER successful send ---
+   await incrementUsageCount();
+  // --- END INTEGRATION ---
+  await sleep(3000);
+}
 async function createSignature(message) {
   const encoder = new TextEncoder();
   const data = encoder.encode(message);
@@ -24,63 +259,28 @@ async function createSignature(message) {
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
-
-/**
- * Checks if the user is allowed to send one more message based on the free tier limit.
- * It handles new day roll-overs and verifies data integrity.
- * @returns {Promise<boolean>} - True if sending is allowed, false otherwise.
- */
-async function isAllowedToSend() {
-  const FREE_TIER_LIMIT = 20;
-  const { deviceId, dailyUsage } = await chrome.storage.local.get(['deviceId', 'dailyUsage']);
-
-  if (!deviceId) {
-    console.error("CRITICAL: Device ID not found. Cannot verify usage.");
-    alert("Extension error: Device ID is missing. Please try reinstalling the extension.");
-    return false;
-  }
-
-  const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
-
-  if (!dailyUsage || dailyUsage.date !== today) {
-    // New day or first use. The count is effectively 0, which is less than the limit.
-    return true;
-  }
-
-  const expectedSignature = await createSignature(`${deviceId}:${dailyUsage.date}:${dailyUsage.count}`);
-  if (expectedSignature !== dailyUsage.signature) {
-    alert("Usage data has been corrupted. To prevent misuse, sending has been disabled. Please contact support or reinstall the extension.");
-    return false;
-  }
-
-  return dailyUsage.count < FREE_TIER_LIMIT;
-}
-
-/**
- * Increments the daily message count and updates the signature in storage.
- * This should be called ONLY AFTER a message is successfully sent.
- */
 async function incrementUsageCount() {
+  // This function is now only called for free tier users
   const { deviceId, dailyUsage } = await chrome.storage.local.get(['deviceId', 'dailyUsage']);
   const today = new Date().toISOString().split('T')[0];
-
   let currentCount = (dailyUsage && dailyUsage.date === today) ? dailyUsage.count : 0;
   const newCount = currentCount + 1;
   const newSignature = await createSignature(`${deviceId}:${today}:${newCount}`);
   
   await chrome.storage.local.set({ 
-    dailyUsage: {
-      count: newCount,
-      date: today,
-      signature: newSignature
-    } 
+    dailyUsage: { count: newCount, date: today, signature: newSignature } 
   });
-  console.log(`Usage incremented. New count for ${today}: ${newCount}`);
+  console.log(`Free tier usage incremented. New count for ${today}: ${newCount}`);
 }
+//////////////////
 
 // =====================================================================
-// --- UI Functions (Progress, Summary & NEW Limit Modal) ---
+// --- UI Functions (Unchanged) ---
 // =====================================================================
+// =====================================================================
+// --- UI Functions (Includes NEW License Expired Modal) ---
+// =====================================================================
+
 function createProgressWidget() {
   if (document.getElementById("sender-progress-widget")) return;
   const widget = document.createElement("div");
@@ -114,9 +314,6 @@ function showSummaryReport(successes, failures) {
     document.getElementById("close-summary-btn").addEventListener("click", () => { report.remove(); });
 }
 
-/**
- * NEW: Displays a beautiful modal when the free tier limit is reached.
- */
 function showLimitReachedModal() {
   if (document.getElementById("sender-limit-modal")) return;
   const modal = document.createElement("div");
@@ -139,158 +336,27 @@ function showLimitReachedModal() {
   document.getElementById("close-limit-modal-btn").addEventListener("click", () => modal.remove());
 }
 
-
-// --- NEW: Message Listener from Popup ---
-// This replaces the old "trigger-sending" event listener.
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.command === "start_sending") {
-    console.log("Start command received.");
-    startSendingProcess();
-    sendResponse({ status: "started" });
-  } else if (message.command === "stop_sending") {
-    console.log("Stop command received.");
-    if (window.isSendingMessages) {
-      window.shouldStop = true; // Set the flag
-      updateProgress("Stopping process...", -1, false);
-    }
-    sendResponse({ status: "stopping" });
-  }
-  return true; // Keep the message channel open for an async response
-});
-
-
-// --- MODIFIED: Main Sending Logic wrapped in a function ---
-async function startSendingProcess() {
-  if (!window.location.href.startsWith("https://messages.google.com/")) {
-    alert("This script can only be run on messages.google.com.");
-    return;
-  }
-  if (window.isSendingMessages) {
-    alert("A sending process is already in progress.");
-    return;
-  }
-
-  // Set initial state
-  window.isSendingMessages = true;
-  window.shouldStop = false; // Reset stop flag at the start of a new process
-
-  createProgressWidget();
-  updateProgress("Loading contacts...", 0);
-
-  chrome.storage.local.get(['contactList'], async (result) => {
-    // MODIFIED: Use a 'finally' block for cleanup
-    try {
-      if (chrome.runtime.lastError || !result.contactList) {
-        throw new Error("Could not load contacts.");
-      }
-
-      const fullContactList = result.contactList;
-      const contactsToSend = fullContactList.filter(contact => !contact.sent);
-      const successfullySent = [];
-      const failedToSend = [];
-
-      if (contactsToSend.length === 0) {
-        updateProgress("All contacts have already been sent!", 100);
-        setTimeout(() => document.getElementById("sender-progress-widget")?.remove(), 4000);
-        return; // Exit early, 'finally' will still run
-      }
-
-      // The main sending loop
-      for (let i = 0; i < contactsToSend.length; i++) {
-        // --- NEW: Check if the user clicked "Stop" in the popup ---
-        if (window.shouldStop) {
-          updateProgress(`Process stopped by user. ${successfullySent.length} messages were sent.`, -1, true);
-          break; // Exit the loop
-        }
-        // -------------------------------------------------------------
-
-         // --- INTEGRATION POINT: Check permission before each send ---
-      const canSend = await isAllowedToSend();
-      if (!canSend) {
-        showLimitReachedModal();
-        break; // Stop the entire loop
-      }
-      // --- END INTEGRATION ---
-
-        const contact = contactsToSend[i];
-        const overallProgress = ((i + 1) / contactsToSend.length) * 100;
-        updateProgress(`Sending ${i + 1}/${contactsToSend.length} to ${contact.number}...`, overallProgress);
-
-        try {
-          await sendMessage(contact.number, contact.message);
-          successfullySent.push(contact);
-          const index = fullContactList.findIndex(c => c.number === contact.number && c.message === contact.message);
-          if (index !== -1) fullContactList[index].sent = true;
-          await new Promise(resolve => chrome.storage.local.set({ 'contactList': fullContactList }, resolve));
-        } catch (error) {
-          console.error(`Failed to send to ${contact.number}:`, error.message);
-          updateProgress(`Failed for ${contact.number}. Continuing...`, overallProgress, true);
-          contact.error = error.message;
-          failedToSend.push(contact);
-          await sleep(3000);
-        }
-      }
-      
-      // --- MODIFIED: Only show the report if the process completed normally ---
-      if (!window.shouldStop) {
-        showSummaryReport(successfullySent, failedToSend);
-      }
-
-    } catch (error) {
-      updateProgress(`Error: ${error.message}`, 0, true);
-    } finally {
-      // --- NEW: This block always runs, ensuring state is reset ---
-      console.log("Process finished or stopped. Cleaning up.");
-      window.isSendingMessages = false; // Allow a new process to start
-      await chrome.storage.local.set({ isSending: false });
-      console.log("✅ 'isSending' flag in chrome.storage has been set to false.");
-      // Tell the popup that the process is over so it can reset its button
-      chrome.runtime.sendMessage({ status: 'process_finished' });
-    }
-  });
-}
-
-
-// --- Core sendMessage Function (Unchanged) ---
-async function sendMessage(number, message) {
-    // 1. Start new chat
-    const newChatButton = document.querySelector('a[data-e2e-start-button]');
-    if (!newChatButton) throw new Error("Could not find 'Start chat' button.");
-    newChatButton.click();
-    await sleep(2000);
-
-    // 2. Enter number
-    const input = document.querySelector("input");
-    if (!input) throw new Error("Could not find number input field.");
-    input.focus();
-    input.value = number;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    await sleep(3000);
-
-    // Click the conversation item
-    const conversationItem = document.querySelector("span.anon-contact-name");
-    if (!conversationItem) throw new Error(`Number not found or invalid.`);
-    conversationItem.click();
-    await sleep(5000);
-
-    // 3. Write and send message
-    const textArea = document.querySelector("textarea.input");
-    if (!textArea) throw new Error("Could not find message text area.");
-    textArea.value = message;
-    textArea.dispatchEvent(new Event("input", { bubbles: true }));
-    await sleep(2000);
-
-    const xpath = "//mws-message-send-button[@class='floating-button']";
-    const sendButton = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-    if (!sendButton) throw new Error("Could not find send button.");
-    const event = new CustomEvent("sendClicked", {
-      bubbles: true,
-      cancelable: true,
-    });
-    sendButton.dispatchEvent(event);
-    
-    // --- INTEGRATION POINT: Increment count AFTER successful send ---
-     await incrementUsageCount();
-    // --- END INTEGRATION ---
-    await sleep(3000);
+/**
+ * Displays a friendly modal when a license has expired.
+ */
+function showLicenseExpiredModal() {
+  if (document.getElementById("sender-expired-modal")) return;
+  const modal = document.createElement("div");
+  modal.id = "sender-expired-modal";
+  modal.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; background-color: white; border-radius: 12px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 10001; font-family: Arial, sans-serif; text-align: center;";
+  
+  modal.innerHTML = `
+    <h2 style="color: #d93025; margin: 0 0 15px 0; font-size: 22px;">Your License Has Expired</h2>
+    <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+      Your premium access has ended, and you have been reverted to the free plan.
+    </p>
+    <div style="background-color: #f1f3f4; padding: 15px; border-radius: 8px;">
+      <h3 style="margin: 0 0 10px 0; color: #333;">Want to Renew?</h3>
+      <p style="margin: 0; color: #555;">To continue with unlimited sending, please contact our support to renew your license.</p>
+    </div>
+    <button id="close-expired-modal-btn" style="width: 100%; padding: 12px; margin-top: 20px; background-color: #1a73e8; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold;">Continue on Free Plan</button>
+  `;
+  
+  document.body.appendChild(modal);
+  document.getElementById("close-expired-modal-btn").addEventListener("click", () => modal.remove());
 }
