@@ -29,7 +29,7 @@ function displayMessage(text, type) {
 // --- NEW: Function to check and display the current license status ---
 
 async function checkAndDisplayCurrentLicense() {
-  const { deviceId, license, user } = await chrome.storage.local.get(['deviceId', 'license', 'user']);
+  const { deviceId, license} = await chrome.storage.local.get(['deviceId', 'license']);
 
   if (!license) {
     licenseStatusDisplay.className = 'license-status status-inactive';

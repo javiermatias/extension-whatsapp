@@ -49,15 +49,17 @@ async function fetchLicenseStatus(userKey) {
   }
 } */
 
-async function checkLicense() {
-  const { deviceId, license, user } = await chrome.storage.local.get(['deviceId', 'license', 'user']);
-  
-  
-  const expectedSignature = await createSignature(`${deviceId}:${license.expires}`);
-  if (expectedSignature !== license.signature) {
-
-    return;
+async function checkLicenseFree() {
+  const { deviceId, license} =  await chrome.storage.local.get(['deviceId', 'license']);
+  if (!license || !license.user) {
+    return true;
   }
+  
+  const expectedSignature = await createSignature(`${deviceId}:${license.expires}:${license.user}`);
+  if (expectedSignature !== license.signature) {
+    return true;
+  }
+  return false;
 
 
 }
@@ -68,11 +70,11 @@ async function checkLicense() {
  * @returns {Promise<{status: 'premium' | 'free' | 'expired'}>}
  */
 async function determineSessionStatus() {
-  const { license } = await chrome.storage.local.get('license');
-  if (!license || !license.user) {
+  //const { license } = await checkLicenseFree()
+  if (await checkLicenseFree()) {
     return { status: 'free' };
   }
-
+  const { license } = await chrome.storage.local.get('license');
   const apiResponse = await fetchLicenseStatus(license.user);
   if (!apiResponse.dateexpiration || apiResponse.dateexpiration === 0) {
     return { status: 'free' };
