@@ -42,7 +42,10 @@ sendButton.addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     if (!tab.url || !tab.url.startsWith("https://messages.google.com/")) {
-      alert("Please navigate to messages.google.com to use this feature.");
+      // Redirect the current tab to the correct URL
+      chrome.tabs.update(tab.id, { url: "https://messages.google.com/web/" });
+      alert("Please navigate to messages.google.com to use this feature.");      
+      
       return;
     }
 
