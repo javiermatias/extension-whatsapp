@@ -6,6 +6,7 @@ const openDataPageButton = document.getElementById('openDataPage');
 const openContactPageButton = document.getElementById('openContactPage');
 const openActivate = document.getElementById('openActivate');
 const helpButton = document.getElementById('helpButton');
+const openConfiguration = document.getElementById('openConfiguration');
 //openActivate
 
 // --- Function to update button text and state based on storage ---
@@ -114,5 +115,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   helpButton?.addEventListener('click', function() {
     chrome.tabs.create({ url: chrome.runtime.getURL('help.html') });
+  });
+  openConfiguration?.addEventListener('click', function() {
+    chrome.tabs.create({ url: chrome.runtime.getURL('options.html') });
   });
 });

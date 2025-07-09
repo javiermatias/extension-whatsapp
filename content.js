@@ -191,11 +191,17 @@ async function startSendingProcess() {
 
 // --- Core sendMessage Function and other helpers (Paste your full functions here) ---
 async function sendMessage(number, message) {
+
+    // 1. Get the configured timings at the start of the function
+    const sendTimes = await getSendConfig();
+    console.log("Using send delays:", sendTimes); // Good for debugging
+
+
   // 1. Start new chat
   const newChatButton = document.querySelector('a[data-e2e-start-button]');
   if (!newChatButton) throw new Error("Could not find 'Start chat' button.");
   newChatButton.click();
-  await sleep(2000);
+  await sleep(sendTimes.buttonClick);
 
   // 2. Enter number
   const input = document.querySelector("input");
@@ -203,20 +209,20 @@ async function sendMessage(number, message) {
   input.focus();
   input.value = number;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  await sleep(3000);
+  await sleep(sendTimes.input);
 
   // Click the conversation item
   const conversationItem = document.querySelector("span.anon-contact-name");
   if (!conversationItem) throw new Error(`Number not found or invalid.`);
   conversationItem.click();
-  await sleep(5000);
+  await sleep(sendTimes.conversation);
 
   // 3. Write and send message
   const textArea = document.querySelector("textarea.input");
   if (!textArea) throw new Error("Could not find message text area.");
   textArea.value = message;
   textArea.dispatchEvent(new Event("input", { bubbles: true }));
-  await sleep(2000);
+  await sleep(sendTimes.sendMessage);
 
   const xpath = "//mws-message-send-button[@class='floating-button']";
   const sendButton = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
@@ -230,7 +236,7 @@ async function sendMessage(number, message) {
   // --- INTEGRATION POINT: Increment count AFTER successful send ---
    await incrementUsageCount();
   // --- END INTEGRATION ---
-  await sleep(3000);
+  await sleep(sendTimes.postSend);
 }
 async function createSignature(message) {
   const encoder = new TextEncoder();
@@ -339,4 +345,27 @@ function showLicenseExpiredModal() {
   
   document.body.appendChild(modal);
   document.getElementById("close-expired-modal-btn").addEventListener("click", () => modal.remove());
+}
+
+
+
+// A helper function to get the configuration with fallback defaults
+async function getSendConfig() {
+  // Define the same defaults here as a fallback
+  const defaultTimes = {
+    buttonClick: 2000,
+    input: 3000,
+    conversation: 5000,
+    sendMessage: 2000,
+    postSend: 3000
+  };
+
+  // Fetch the configuration from storage
+  const result = await chrome.storage.local.get('appConfig');
+  
+  // If appConfig exists and has a 'times' property, use it. Otherwise, use the defaults.
+  const storedTimes = result.appConfig?.times;
+  
+  // Merge defaults with stored values (stored values will overwrite defaults)
+  return { ...defaultTimes, ...storedTimes };
 }

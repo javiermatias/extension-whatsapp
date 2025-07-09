@@ -3,6 +3,24 @@
 // This event runs once when the extension is first installed.
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
+///////////// Define the default timings for the sendMessage function/////////////////////
+    const defaultConfig = {
+      times: {
+        buttonClick: 2000,  // Wait after clicking "Start chat"
+        input: 3000,        // Wait after typing the number
+        conversation: 5000, // Wait after clicking the contact to load chat
+        sendMessage: 2000,  // Wait after typing the message
+        postSend: 3000      // Wait after the message is sent
+      }
+    };
+
+    // Save this configuration object to chrome.storage.local
+    chrome.storage.local.set({ 'appConfig': defaultConfig }, () => {
+      console.log('Default configuration saved on installation.');
+    });  
+
+///////////////////////////////////////////////////////////////////////////////////////////
+
     // Check if a deviceId already exists to be safe.
     const { deviceId } = await chrome.storage.local.get('deviceId');
     
