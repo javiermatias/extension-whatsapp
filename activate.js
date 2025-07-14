@@ -108,8 +108,8 @@ async function handleActivation() {
     displayToast('Connecting to activation server...', 'info'); // REPLACED
 
     try {
-        const url = 'https://ausentismos.online/paypal/activateChromeLicense';
-        const payload = { user: licenseKey, unique_id: deviceId, mex: false, token: "EMQzHBjq0YYpLHWWDjN-KGcVES4j-JYQ2FDHb6HjumFpQTbZclDMHIAmCULgK4Aa5pRSSs7f_OUB8mqQ" };
+        const url = 'https://ausentismos.online/paypal/activateWhatsappLicense';
+        const payload = { user: licenseKey, unique_id: deviceId, token: "EMQzHBjq0YYpLHWWDjN-KGcVES4j-JYQ2FDHb6HjumFpQTbZclDMHIAmCULgK4Aa5pRSSs7f_OUB8mqQ" };
 
         const response = await fetch(url, {
             method: 'POST',

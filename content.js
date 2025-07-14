@@ -1,306 +1,79 @@
-// content.js
 
-// --- Global Flags & Helpers ---
-window.shouldStop = false;
-window.isSendingMessages = false;
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// --- Global Flags (less important now, but can be useful) ---
+// =====================================================================
+window.isWidgetVisible = false;
 
 // =====================================================================
-// --- PERMISSION & USAGE-TRACKING LOGIC (REFACTORED FOR EFFICIENCY) ---
+// --- MESSAGE LISTENER (Listens for commands from Background.js) ---
 // =====================================================================
-
-/**
- * Calls your server to get the current status of a license key.
- * @param {string} userKey - The license key stored for the user.
- * @returns {Promise<{dateexpiration: string | 0}>} The server's response.
- */
-
-async function fetchLicenseStatus(userKey) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage(
-      { type: "CHECK_LICENSE", userKey },
-      (response) => {
-        resolve(response || { dateexpiration: 0 });
-      }
-    );
-  });
-}
-
-
-async function checkLicenseFree() {
-  const { deviceId, license} =  await chrome.storage.local.get(['deviceId', 'license']);
-  if (!license || !license.user) {
-    return true;
-  }
-  
-  const expectedSignature = await createSignature(`${deviceId}:${license.expires}:${license.user}`);
-  if (expectedSignature !== license.signature) {
-    return true;
-  }
-  return false;
-
-
-}
-
-/**
- * The ONE-TIME check performed at the START of a sending process.
- * Determines if the session is 'premium', 'expired', or 'free'.
- * @returns {Promise<{status: 'premium' | 'free' | 'expired'}>}
- */
-async function determineSessionStatus() {
-  //const { license } = await checkLicenseFree()
-  if (await checkLicenseFree()) {
-    return { status: 'free' };
-  }
-  const { license } = await chrome.storage.local.get('license');
-  const apiResponse = await fetchLicenseStatus(license.user);
-  if (!apiResponse.dateexpiration || apiResponse.dateexpiration === 0) {
-    return { status: 'free' };
-  }
-
-  const expiryDate = new Date(apiResponse.dateexpiration);
-  if (expiryDate >= new Date()) {
-    return { status: 'premium' };
-  } else {
-    return { status: 'expired' };
-  }
-}
-
-/**
- * A LIGHTWEIGHT, LOCAL-ONLY check for the free tier limit.
- * This is called inside the loop only for free tier users.
- * @returns {Promise<boolean>}
- */
-async function checkFreeTierDailyLimit() {
-  const { deviceId, dailyUsage } = await chrome.storage.local.get(['deviceId', 'dailyUsage']);
-  const todayStr = new Date().toISOString().split('T')[0];
-
-  if (!dailyUsage || dailyUsage.date !== todayStr) return true;
-
-  // Verify signature to prevent tampering
-  const expectedSignature = await createSignature(`${deviceId}:${dailyUsage.date}:${dailyUsage.count}`);
-  if (expectedSignature !== dailyUsage.signature) {
-    alert("Usage data is corrupted. Sending disabled.");
-    return false;
-  }
-
-  return dailyUsage.count < 20;
-}
-
-
-// --- Message Listener ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.command === "start_sending") startSendingProcess();
-  if (message.command === "stop_sending" && window.isSendingMessages) {
-    window.shouldStop = true;
-    updateProgress("Stopping process...", -1, false);
-  }
-  if (message.command === "stop_sending" && !window.isSendingMessages) {
-    window.isSendingMessages = false;
-    chrome.storage.local.set({ isSending: false });
-    chrome.runtime.sendMessage({ status: 'process_finished' });
-  }
-  sendResponse({ status: "acknowledged" });
-  return true;
+    // Note: We don't need to check sender, as these are targeted messages from our background
+    if (message.command === 'create_widget') {
+        createProgressWidget();
+    }
+    if (message.command === 'update_progress') {
+        const { statusText, progress, isError } = message.payload;
+        updateProgress(statusText, progress, isError);
+    }
+    if (message.command === 'show_summary') {
+        const { successes, failures } = message.payload;
+        showSummaryReport(successes, failures);
+    }
+    if (message.command === 'show_limit_modal') {
+        showLimitReachedModal();
+    }
+    if (message.command === 'show_expired_modal') {
+        showLicenseExpiredModal();
+    }
+    sendResponse({ status: "acknowledged" });
+    return true;
 });
 
-// =====================================================================
-// --- Main Sending Logic (Updated with Final Permission System) ---
-// =====================================================================
-async function startSendingProcess() {
-  if (window.isSendingMessages) {
-    alert("A sending process is already in progress.");
-    return;
-  }
-
-  // *** STEP 1: Perform the permission check ONCE before anything else ***
-  const session = await determineSessionStatus();
-
-  // *** STEP 2: Handle an expired license immediately and STOP ***
-  if (session.status === 'expired') {
-    showLicenseExpiredModal();
-    return; // Do not proceed
-  }
-
-  // --- If we get here, the user is either 'premium' or 'free' ---
-  window.isSendingMessages = true;
-  window.shouldStop = false;
-  
-  createProgressWidget();
-  updateProgress(session.status === 'premium' ? "Premium license active. Loading contacts..." : "Free tier active. Loading contacts...", 0);
-  
-  try {
-    const { contactList } = await chrome.storage.local.get('contactList');
-    if (!contactList) throw new Error("Could not load contacts.");
-
-    const contactsToSend = contactList.filter(c => !c.sent);
-    if (contactsToSend.length === 0) {
-      updateProgress("All contacts sent!", 100);
-      setTimeout(() => document.getElementById("sender-progress-widget")?.remove(), 4000);
-      return;
-    }
-
-    const successfullySent = [], failedToSend = [];
-    for (let i = 0; i < contactsToSend.length; i++) {
-      if (window.shouldStop) {
-        updateProgress(`Process stopped by user.`, -1, true);
-        break;
-      }
-      
-      if (session.status === 'free') {
-        const isAllowed = await checkFreeTierDailyLimit();
-        if (!isAllowed) {
-          showLimitReachedModal();
-          break;
-        }
-      }
-
-      const contact = contactsToSend[i];
-      const overallProgress = ((i + 1) / contactsToSend.length) * 100;
-      updateProgress(`Sending ${i + 1}/${contactsToSend.length} to ${contact.number}...`, overallProgress);
-
-      try {
-        await sendMessage(contact.number, contact.message);
-        successfullySent.push(contact);
-        
-        const index = contactList.findIndex(c => c.number === contact.number && c.message === contact.message);
-        if (index !== -1) contactList[index].sent = true;
-        await chrome.storage.local.set({ 'contactList': contactList });
-
-        if (session.status === 'free') {
-          await incrementUsageCount();
-        }
-
-      } catch (error) {
-        contact.error = error.message;
-        failedToSend.push(contact);
-        updateProgress(`Failed for ${contact.number}. Continuing...`, overallProgress, true);
-        await sleep(3000);
-      }
-    }
-    if (!window.shouldStop) showSummaryReport(successfullySent, failedToSend);
-
-  } catch (error) {
-    updateProgress(`Error: ${error.message}`, 0, true);
-  } finally {
-    window.isSendingMessages = false;
-    await chrome.storage.local.set({ isSending: false });
-    chrome.runtime.sendMessage({ status: 'process_finished' });
-  }
-}
-
-// --- Core sendMessage Function and other helpers (Paste your full functions here) ---
-async function sendMessage(number, message) {
-
-    // 1. Get the configured timings at the start of the function
-    const sendTimes = await getSendConfig();
-    console.log("Using send delays:", sendTimes); // Good for debugging
-
-
-  // 1. Start new chat
-  const newChatButton = document.querySelector('a[data-e2e-start-button]');
-  if (!newChatButton) throw new Error("Could not find 'Start chat' button.");
-  newChatButton.click();
-  await sleep(sendTimes.buttonClick);
-
-  // 2. Enter number
-  const input = document.querySelector("input");
-  if (!input) throw new Error("Could not find number input field.");
-  input.focus();
-  input.value = number;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  await sleep(sendTimes.input);
-
-  // Click the conversation item
-  const conversationItem = document.querySelector("span.anon-contact-name");
-  if (!conversationItem) throw new Error(`Number not found or invalid.`);
-  conversationItem.click();
-  await sleep(sendTimes.conversation);
-
-  // 3. Write and send message
-  const textArea = document.querySelector("textarea.input");
-  if (!textArea) throw new Error("Could not find message text area.");
-  textArea.value = message;
-  textArea.dispatchEvent(new Event("input", { bubbles: true }));
-  await sleep(sendTimes.sendMessage);
-
-  const xpath = "//mws-message-send-button[@class='floating-button']";
-  const sendButton = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-  if (!sendButton) throw new Error("Could not find send button.");
-  const event = new CustomEvent("sendClicked", {
-    bubbles: true,
-    cancelable: true,
-  });
-  sendButton.dispatchEvent(event);
-  
-  // --- INTEGRATION POINT: Increment count AFTER successful send ---
-   await incrementUsageCount();
-  // --- END INTEGRATION ---
-  await sleep(sendTimes.postSend);
-}
-async function createSignature(message) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-async function incrementUsageCount() {
-  // This function is now only called for free tier users
-  const { deviceId, dailyUsage } = await chrome.storage.local.get(['deviceId', 'dailyUsage']);
-  const today = new Date().toISOString().split('T')[0];
-  let currentCount = (dailyUsage && dailyUsage.date === today) ? dailyUsage.count : 0;
-  const newCount = currentCount + 1;
-  const newSignature = await createSignature(`${deviceId}:${today}:${newCount}`);
-  
-  await chrome.storage.local.set({ 
-    dailyUsage: { count: newCount, date: today, signature: newSignature } 
-  });
-  console.log(`Free tier usage incremented. New count for ${today}: ${newCount}`);
-}
-//////////////////
 
 // =====================================================================
-// --- UI Functions (Unchanged) ---
+// --- UI Functions (Your code, unchanged, just pasted here) ---
 // =====================================================================
-// =====================================================================
-// --- UI Functions (Includes NEW License Expired Modal) ---
-// =====================================================================
+// These functions are now exposed to the global `window` object so
+// the background script can call them via `executeScript`.
 
-function createProgressWidget() {
+window.createProgressWidget = function() {
   if (document.getElementById("sender-progress-widget")) return;
   const widget = document.createElement("div");
+  // ... (paste your full createProgressWidget function here)
   widget.id = "sender-progress-widget";
   widget.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: 300px; background-color: white; border: 1px solid #ccc; border-radius: 8px; padding: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 9999; font-family: Arial, sans-serif; font-size: 14px;";
   widget.innerHTML = `<h4 style="margin: 0 0 10px 0; padding: 0; color: #333;">Bulk Sender Progress</h4><p id="sender-status-text" style="margin: 0; color: #555;">Initializing...</p><div style="background-color: #e0e0e0; border-radius: 5px; margin-top: 10px; overflow: hidden;"><div id="sender-progress-bar" style="width: 0%; height: 10px; background-color: #007bff;"></div></div>`;
   document.body.appendChild(widget);
-}
+  window.isWidgetVisible = true;
+};
 
-function updateProgress(message, progressPercentage, isError = false) {
+window.updateProgress = function(message, progressPercentage, isError = false) {
+  // Ensure the widget exists first
+  if (!window.isWidgetVisible) window.createProgressWidget();
+  // ... (paste your full updateProgress function here)
   const statusText = document.getElementById("sender-status-text");
   const progressBar = document.getElementById("sender-progress-bar");
   if (statusText) statusText.textContent = message;
   if (progressBar) {
-    // If progress is -1, it's an indeterminate state like "Stopping..."
     progressBar.style.width = progressPercentage === -1 ? '100%' : `${progressPercentage}%`;
     progressBar.style.backgroundColor = progressPercentage === -1 ? "#6c757d" : (isError ? "#ffc107" : "#007bff");
   }
-}
+};
 
-function showSummaryReport(successes, failures) {
-    const progressWidget = document.getElementById("sender-progress-widget");
-    if (progressWidget) progressWidget.remove();
-    const report = document.createElement("div");
-    report.id = "sender-summary-report";
-    report.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 450px; max-height: 80vh; background-color: white; border: 1px solid #ccc; border-radius: 8px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 10000; font-family: Arial, sans-serif; overflow-y: auto;";
-    const successItems = successes.map(c => `<li style="color: green;">${c.number}</li>`).join('') || '<li>None</li>';
-    const failureItems = failures.map(c => `<li style="color: red;">${c.number} - <i style="color:#555;">${c.error}</i></li>`).join('') || '<li>None</li>';
-    report.innerHTML = `<h3 style="margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #eee;">Campaign Finished</h3><h4 style="margin: 10px 0 5px 0;">✅ Successful Sends (${successes.length})</h4><ul style="list-style-type: none; padding: 0; margin: 0 0 15px 0; max-height: 150px; overflow-y: auto; border: 1px solid #eee; padding: 5px;">${successItems}</ul><h4 style="margin: 10px 0 5px 0;">❌ Failed Sends (${failures.length})</h4><ul style="list-style-type: none; padding: 0; margin: 0 0 20px 0; max-height: 150px; overflow-y: auto; border: 1px solid #eee; padding: 5px;">${failureItems}</ul><button id="close-summary-btn" style="width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Close</button>`;
-    document.body.appendChild(report);
-    document.getElementById("close-summary-btn").addEventListener("click", () => { report.remove(); });
-}
+window.showSummaryReport = function(successes, failures) {
+  const progressWidget = document.getElementById("sender-progress-widget");
+  if (progressWidget) progressWidget.remove();
+  const report = document.createElement("div");
+  report.id = "sender-summary-report";
+  report.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 450px; max-height: 80vh; background-color: white; border: 1px solid #ccc; border-radius: 8px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 10000; font-family: Arial, sans-serif; overflow-y: auto;";
+  const successItems = successes.map(c => `<li style="color: green;">${c.number}</li>`).join('') || '<li>None</li>';
+  const failureItems = failures.map(c => `<li style="color: red;">${c.number} - <i style="color:#555;">${c.error}</i></li>`).join('') || '<li>None</li>';
+  report.innerHTML = `<h3 style="margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #eee;">Campaign Finished</h3><h4 style="margin: 10px 0 5px 0;">✅ Successful Sends (${successes.length})</h4><ul style="list-style-type: none; padding: 0; margin: 0 0 15px 0; max-height: 150px; overflow-y: auto; border: 1px solid #eee; padding: 5px;">${successItems}</ul><h4 style="margin: 10px 0 5px 0;">❌ Failed Sends (${failures.length})</h4><ul style="list-style-type: none; padding: 0; margin: 0 0 20px 0; max-height: 150px; overflow-y: auto; border: 1px solid #eee; padding: 5px;">${failureItems}</ul><button id="close-summary-btn" style="width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Close</button>`;
+  document.body.appendChild(report);
+  document.getElementById("close-summary-btn").addEventListener("click", () => { report.remove(); });
+};
 
-function showLimitReachedModal() {
+window.showLimitReachedModal = function() {
   if (document.getElementById("sender-limit-modal")) return;
   const modal = document.createElement("div");
   modal.id = "sender-limit-modal";
@@ -320,12 +93,9 @@ function showLimitReachedModal() {
   
   document.body.appendChild(modal);
   document.getElementById("close-limit-modal-btn").addEventListener("click", () => modal.remove());
-}
+};
 
-/**
- * Displays a friendly modal when a license has expired.
- */
-function showLicenseExpiredModal() {
+window.showLicenseExpiredModal = function() {
   if (document.getElementById("sender-expired-modal")) return;
   const modal = document.createElement("div");
   modal.id = "sender-expired-modal";
@@ -345,27 +115,11 @@ function showLicenseExpiredModal() {
   
   document.body.appendChild(modal);
   document.getElementById("close-expired-modal-btn").addEventListener("click", () => modal.remove());
-}
+};
 
 
 
-// A helper function to get the configuration with fallback defaults
-async function getSendConfig() {
-  // Define the same defaults here as a fallback
-  const defaultTimes = {
-    buttonClick: 2000,
-    input: 3000,
-    conversation: 5000,
-    sendMessage: 2000,
-    postSend: 3000
-  };
 
-  // Fetch the configuration from storage
-  const result = await chrome.storage.local.get('appConfig');
-  
-  // If appConfig exists and has a 'times' property, use it. Otherwise, use the defaults.
-  const storedTimes = result.appConfig?.times;
-  
-  // Merge defaults with stored values (stored values will overwrite defaults)
-  return { ...defaultTimes, ...storedTimes };
-}
+
+
+

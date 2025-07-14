@@ -42,10 +42,10 @@ sendButton.addEventListener("click", async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab.url || !tab.url.startsWith("https://messages.google.com/")) {
+    if (!tab.url || !tab.url.startsWith("https://web.whatsapp.com/")) {
       // Redirect the current tab to the correct URL
-      chrome.tabs.update(tab.id, { url: "https://messages.google.com/web/" });
-      alert("Please navigate to messages.google.com to use this feature.");      
+      chrome.tabs.update(tab.id, { url: "https://web.whatsapp.com/" });
+      alert("Please navigate to web.whatsapp.com to use this feature.");      
       
       return;
     }
@@ -57,14 +57,14 @@ sendButton.addEventListener("click", async () => {
       console.log("Popup: Sending 'stop' command.");
       sendButton.textContent = "Stopping...";
       sendButton.disabled = true; // Briefly disable to prevent multiple clicks
-      await chrome.tabs.sendMessage(tab.id, { command: "stop_sending" });
+      await chrome.runtime.sendMessage({ command: "stop_sending" });
       // The content script will handle resetting state and notifying us back.
     } else {
       // --- If it's not sending, send a START command ---
       console.log("Popup: Sending 'start' command.");
       await chrome.storage.local.set({ isSending: true });
-      updateButtonState(); // Update UI immediately
-      await chrome.tabs.sendMessage(tab.id, { command: "start_sending" });
+     // updateButtonState(); // Update UI immediately
+      await chrome.runtime.sendMessage({ command: "start_sending" });
     }
   } catch (error) {
     // THIS IS THE FIX for "Receiving end does not exist"
@@ -81,6 +81,25 @@ sendButton.addEventListener("click", async () => {
     }
   }
 });
+
+// Listen for messages from the background script to update the UI
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    (async () => {
+      if (message.status === 'process_started' || message.status === 'process_finished' || message.status === 'process_stopped') {
+        await updateButtonState();
+      }
+    })();
+  
+    // Return true to indicate you will respond asynchronously
+    return true;
+  });
+});
+
+
+
+
+
 
 // --- Initialization logic when the popup is opened ---
 // Also refactored to use async/await.
@@ -120,3 +139,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     chrome.tabs.create({ url: chrome.runtime.getURL('options.html') });
   });
 });
+
+
+
+
