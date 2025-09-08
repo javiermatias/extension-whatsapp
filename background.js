@@ -98,7 +98,7 @@ async function startSendingProcess() {
 
       try {
           // The magic happens here: URL opens the chat, then script sends it.
-          const chatUrl = `https://web.whatsapp.com/send?phone=${contact.number}`;
+          const chatUrl = `https://web.whatsapp.com/send?phone=${contact.number}&text=${contact.message}`;
           await chrome.tabs.update(waTab.id, { url: chatUrl });
 
           // Wait for the tab to update and then send the message.

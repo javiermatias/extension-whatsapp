@@ -5,7 +5,8 @@
   "description": "Sends WhatsApp messages from a background process.",
   "permissions": [
     "activeTab",   
-    "storage"
+    "storage",
+    "scripting" 
   ],
   "options_page": "data.html",
   "host_permissions": ["*://web.whatsapp.com/*", 

@@ -83,7 +83,7 @@ sendButton.addEventListener("click", async () => {
 });
 
 // Listen for messages from the background script to update the UI
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       if (message.status === 'process_started' || message.status === 'process_finished' || message.status === 'process_stopped') {
@@ -94,7 +94,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Return true to indicate you will respond asynchronously
     return true;
   });
-});
+
 
 
 
