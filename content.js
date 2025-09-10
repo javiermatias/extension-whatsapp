@@ -1,8 +1,8 @@
 // content.js
 
 // --- Global Flags & Helpers ---
-window.shouldStop = false;
-window.isSendingMessages = false;
+window.shouldStop = chrome.storage.local.get('shouldStop');;
+window.isSendingMessages = chrome.storage.local.get('isSending');;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 
@@ -389,9 +389,9 @@ function showLicenseDoubleModal() {
 async function getSendConfig() {
   // Define the same defaults here as a fallback
   const defaultTimes = {
-    buttonClick: 2000,
+/*     buttonClick: 2000,
     input: 3000,
-    conversation: 5000,
+    conversation: 5000, */
     sendMessage: 2000,
     postSend: 3000
   };

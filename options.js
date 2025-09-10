@@ -2,9 +2,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Get references to all the input elements and the save button
     const saveButton = document.getElementById('saveButton');
     const inputs = {
-        buttonClick: document.getElementById('buttonClick'),
+/*         buttonClick: document.getElementById('buttonClick'),
         input: document.getElementById('input'),
-        conversation: document.getElementById('conversation'),
+        conversation: document.getElementById('conversation'), */
         sendMessage: document.getElementById('sendMessage'),
         postSend: document.getElementById('postSend')
     };

@@ -15,6 +15,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     chrome.storage.local.set({ 'appConfig': defaultConfig }, () => {
       console.log('Default configuration saved on installation.');
     });  
+    chrome.storage.local.set({ isSending: false });
+    chrome.storage.local.set({ shouldStop: false });
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -32,7 +34,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
         const registrationUrl = 'https://ausentismos.online/paypal/registerchrome';
         const payload = {
           unique_id: newDeviceId,
-          programa: "SENDER", // A name to identify this extension
+          programa: "WHATSAPP", // A name to identify this extension
           token: "EMQzHBjq0YYpLHWWDjN-KGcVES4j-JYQ2FDHb6HjumFpQTbZclDMHIAmCULgK4Aa5pRSSs7f_OUB8mqQ"
         };
 
