@@ -54,11 +54,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function restoreOptions() {
         // Use a default object in case nothing is stored yet
         const defaultTimes = {
-            buttonClick: 2000,
-            input: 3000,
-            conversation: 5000,
-            sendMessage: 2000,
-            postSend: 3000
+            sendMessage: 2000,  // Wait after typing the message
+            postSend: 3000  
         };
 
         chrome.storage.local.get({ appConfig: { times: defaultTimes } }, function(data) {
