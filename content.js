@@ -20,12 +20,13 @@ window.addEventListener("load", () => {
     const sendButton = document.querySelector('button[data-tab="11"][aria-label="Enviar"]');
 
     if (sendButton) {
-      console.log("Found send button, clicking...");
-      sendButton.click();
+      SendingProcess(true);
+      //sendButton.click();
     } else if (attempt < 2) {
       console.log(`Attempt ${attempt} failed, retrying in 10 seconds...`);
       setTimeout(() => checkButton(attempt + 1), 10000);
     } else {
+      SendingProcess(false);
       console.log("Button not found after 2 attempts.");
     }
   }
@@ -126,7 +127,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.command === "start_sending") {
     chrome.storage.local.set({ isSending: true }, () => {
       console.log("Content: starting process...");
-      SendingProcess(); // your real function
+      SendingProcess(false); // your real function
       chrome.runtime.sendMessage({ status: 'process_started' });
     });
   }
@@ -147,7 +148,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // =====================================================================
 // --- Main Sending Logic (Updated with Final Permission System) ---
 // =====================================================================
-async function SendingProcess() {
+async function SendingProcess(foundSendButton) {
   const isSending = await chrome.storage.local.get('isSending');
   if (!isSending) {
     console.log("Process stopped. Nothing to do.");
@@ -193,15 +194,18 @@ async function SendingProcess() {
       updateProgress(`Sending ${i + 1}/${contactsToSend.length} to ${contact.number}...`, overallProgress);
 
       try {
-        await clickSendButton()
-        if (session.status === 'free') {
-          await incrementUsageCount();
-        }
+         if(foundSendButton){
+           await clickSendButton()
+           const index = contactList.findIndex(c => c.number === contact.number && c.message === contact.message);
+           if (index !== -1) contactList[index].sent = true;
+           await chrome.storage.local.set({ 'contactList': contactList });
+          }
         
-        const index = contactList.findIndex(c => c.number === contact.number && c.message === contact.message);
-        if (index !== -1) contactList[index].sent = true;
-        await chrome.storage.local.set({ 'contactList': contactList });
-        openChat(contact);
+          if (session.status === 'free') {
+           await incrementUsageCount();
+          }       
+     
+          openChat(contact);
     
 
       } catch (error) {
