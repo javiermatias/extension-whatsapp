@@ -62,7 +62,7 @@ sendButton.addEventListener("click", async () => {
     } else {
       // --- If it's not sending, send a START command ---
       console.log("Popup: Sending 'start' command.");
-      //await chrome.storage.local.set({ isSending: true });
+      await chrome.storage.local.set({ isSending: true });
       updateButtonState(); // Update UI immediately
       await chrome.tabs.sendMessage(tab.id, { command: "start_sending" });
     }

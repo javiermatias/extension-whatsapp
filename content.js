@@ -126,8 +126,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.command === "start_sending") {
     chrome.storage.local.set({ isSending: true }, () => {
       console.log("Content: starting process...");
-      //startSendingProcess(); // your real function
-      //chrome.runtime.sendMessage({ status: 'process_started' });
+      SendingProcess(); // your real function
+      chrome.runtime.sendMessage({ status: 'process_started' });
     });
   }
 
@@ -147,10 +147,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // =====================================================================
 // --- Main Sending Logic (Updated with Final Permission System) ---
 // =====================================================================
-async function startSendingProcess() {
-  console.log("start sending process...");
-  /* if (window.isSendingMessages) {
-    alert("A sending process is already in progress.");
+async function SendingProcess() {
+  const isSending = await chrome.storage.local.get('isSending');
+  if (!isSending) {
+    console.log("Process stopped. Nothing to do.");
     return;
   }
 
@@ -162,15 +162,7 @@ async function startSendingProcess() {
     showLicenseExpiredModal();
     return; // Do not proceed
   }
-  if (session.status === 'double') {
-    showLicenseDoubleModal();
-    return; // Do not proceed
-  }
 
-  // --- If we get here, the user is either 'premium' or 'free' ---
-  window.isSendingMessages = true;
-  window.shouldStop = false;
-  
   createProgressWidget();
   updateProgress(session.status === 'premium' ? "Premium license active. Loading contacts..." : "Free tier active. Loading contacts...", 0);
   
@@ -181,16 +173,13 @@ async function startSendingProcess() {
     const contactsToSend = contactList.filter(c => !c.sent);
     if (contactsToSend.length === 0) {
       updateProgress("All contacts sent!", 100);
-      setTimeout(() => document.getElementById("sender-progress-widget")?.remove(), 4000);
+      await chrome.storage.local.set({ isSending: false });
+      setTimeout(() => document.getElementById("sender-progress-widget")?.remove(), 6000);
       return;
     }
 
-    const successfullySent = [], failedToSend = [];
-    for (let i = 0; i < contactsToSend.length; i++) {
-      if (window.shouldStop) {
-        updateProgress(`Process stopped by user.`, -1, true);
-        break;
-      }
+    //const successfullySent = [], failedToSend = [];
+    for (let i = 0; i < contactsToSend.length; i++) {  
       
       if (session.status === 'free') {
         const isAllowed = await checkFreeTierDailyLimit();
@@ -199,90 +188,62 @@ async function startSendingProcess() {
           break;
         }
       }
-
       const contact = contactsToSend[i];
       const overallProgress = ((i + 1) / contactsToSend.length) * 100;
       updateProgress(`Sending ${i + 1}/${contactsToSend.length} to ${contact.number}...`, overallProgress);
 
       try {
-        await sendMessage(contact.number, contact.message);
-        successfullySent.push(contact);
+        await clickSendButton()
+        if (session.status === 'free') {
+          await incrementUsageCount();
+        }
         
         const index = contactList.findIndex(c => c.number === contact.number && c.message === contact.message);
         if (index !== -1) contactList[index].sent = true;
         await chrome.storage.local.set({ 'contactList': contactList });
-
-        if (session.status === 'free') {
-          await incrementUsageCount();
-        }
+        openChat(contact);
+    
 
       } catch (error) {
         contact.error = error.message;
-        failedToSend.push(contact);
+        //failedToSend.push(contact);
         updateProgress(`Failed for ${contact.number}. Continuing...`, overallProgress, true);
         await sleep(3000);
       }
     }
-    if (!window.shouldStop) showSummaryReport(successfullySent, failedToSend);
+    //if (!window.shouldStop) showSummaryReport(successfullySent, failedToSend);
 
   } catch (error) {
     updateProgress(`Error: ${error.message}`, 0, true);
   } finally {
-    window.isSendingMessages = false;
+    //window.isSendingMessages = false;
     await chrome.storage.local.set({ isSending: false });
     chrome.runtime.sendMessage({ status: 'process_finished' });
-  } */
+  } 
 }
 
-// --- Core sendMessage Function and other helpers (Paste your full functions here) ---
-async function sendMessage(number, message) {
+function openChat(contact) {
+  if (!contact?.number || !contact?.message) {
+    console.error("openChat: invalid contact object", contact);
+    return;
+  }
 
-    // 1. Get the configured timings at the start of the function
-    const sendTimes = await getSendConfig();
-    console.log("Using send delays:", sendTimes); // Good for debugging
-
-
-  // 1. Start new chat
-  const newChatButton = document.querySelector('a[data-e2e-start-button]');
-  if (!newChatButton) throw new Error("Could not find 'Start chat' button.");
-  newChatButton.click();
-  await sleep(sendTimes.buttonClick);
-
-  // 2. Enter number
-  const input = document.querySelector("input");
-  if (!input) throw new Error("Could not find number input field.");
-  input.focus();
-  input.value = number;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  await sleep(sendTimes.input);
-
-  // Click the conversation item
-  const conversationItem = document.querySelector("span.anon-contact-name");
-  if (!conversationItem) throw new Error(`Number not found or invalid.`);
-  conversationItem.click();
-  await sleep(sendTimes.conversation);
-
-  // 3. Write and send message
-  const textArea = document.querySelector("textarea.input");
-  if (!textArea) throw new Error("Could not find message text area.");
-  textArea.value = message;
-  textArea.dispatchEvent(new Event("input", { bubbles: true }));
-  await sleep(sendTimes.sendMessage);
-
-  const xpath = "//mws-message-send-button[@class='floating-button']";
-  const sendButton = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-  if (!sendButton) throw new Error("Could not find send button.");
-  const event = new CustomEvent("sendClicked", {
-    bubbles: true,
-    cancelable: true,
-  });
-  sendButton.dispatchEvent(event);
+  const chatUrl = `https://web.whatsapp.com/send?phone=${encodeURIComponent(contact.number)}&text=${encodeURIComponent(contact.message)}`;
   
-  // --- INTEGRATION POINT: Increment count AFTER successful send ---
-  await incrementUsageCount();
-  // --- END INTEGRATION ---
+  // Open in the current tab
+  window.location.href = chatUrl;
+
+  console.log("Navigating to chat:", chatUrl);
+}
+async function clickSendButton() {
+  const sendTimes = await getSendConfig();
+  const sendButton = document.querySelector('button[data-tab="11"][aria-label="Enviar"]');
+  if (!sendButton) throw new Error("Could not find 'Send' button.");
+  sendButton.click();
   await sleep(sendTimes.postSend);
 }
+
+
 async function createSignature(message) {
   const encoder = new TextEncoder();
   const data = encoder.encode(message);
@@ -420,9 +381,7 @@ function showLicenseDoubleModal() {
 async function getSendConfig() {
   // Define the same defaults here as a fallback
   const defaultTimes = {
-/*     buttonClick: 2000,
-    input: 3000,
-    conversation: 5000, */
+
     sendMessage: 2000,
     postSend: 3000
   };
