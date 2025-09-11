@@ -1,14 +1,37 @@
 // content.js
 
 // --- Global Flags & Helpers ---
-window.shouldStop = chrome.storage.local.get('shouldStop');;
-window.isSendingMessages = chrome.storage.local.get('isSending');;
+//window.shouldStop = false;
+window.isSendingMessages = false;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+chrome.storage.local.get(['isSending'], (result) => {
+  //window.shouldStop = result.shouldStop ?? false;
+  window.isSendingMessages = result.isSending ?? false;
 
+  //console.log("Should stop", window.shouldStop);
+  console.log("Is sending", window.isSendingMessages);
+});
 
 
 window.addEventListener("load", () => {
-  console.log("Hello world from content.js (page fully loaded)!");
+  console.log("Page fully loaded, waiting 10 seconds before checking for the send button...");
+
+  function checkButton(attempt) {
+    const sendButton = document.querySelector('button[data-tab="11"][aria-label="Enviar"]');
+
+    if (sendButton) {
+      console.log("Found send button, clicking...");
+      sendButton.click();
+    } else if (attempt < 2) {
+      console.log(`Attempt ${attempt} failed, retrying in 10 seconds...`);
+      setTimeout(() => checkButton(attempt + 1), 10000);
+    } else {
+      console.log("Button not found after 2 attempts.");
+    }
+  }
+
+  // First attempt after 10s
+  setTimeout(() => checkButton(1), 10000);
 }, { once: true });
 
 // =====================================================================
@@ -59,14 +82,14 @@ async function determineSessionStatus() {
     return { status: 'free' };
   }
   const { license } = await chrome.storage.local.get('license');
-  const { deviceId } = await chrome.storage.local.get('deviceId');
+  //const { deviceId } = await chrome.storage.local.get('deviceId');
   const apiResponse = await fetchLicenseStatus(license.user);
   if (!apiResponse.dateexpiration || apiResponse.dateexpiration === 0) {
     return { status: 'free' };
   }
-  if(apiResponse.unique_id !== deviceId) {
+ /*  if(apiResponse.unique_id !== deviceId) {
     return { status: 'double' };
-  }
+  } */
 
   const expiryDate = new Date(apiResponse.dateexpiration);
   if (expiryDate >= new Date()) {
@@ -100,16 +123,23 @@ async function checkFreeTierDailyLimit() {
 
 // --- Message Listener ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.command === "start_sending") startSendingProcess();
-  if (message.command === "stop_sending" && window.isSendingMessages) {
-    window.shouldStop = true;
-    updateProgress("Stopping process...", -1, false);
+  if (message.command === "start_sending") {
+    chrome.storage.local.set({ isSending: true }, () => {
+      console.log("Content: starting process...");
+      //startSendingProcess(); // your real function
+      //chrome.runtime.sendMessage({ status: 'process_started' });
+    });
   }
-  if (message.command === "stop_sending" && !window.isSendingMessages) {
-    window.isSendingMessages = false;
-    chrome.storage.local.set({ isSending: false });
-    chrome.runtime.sendMessage({ status: 'process_finished' });
+
+  if (message.command === "stop_sending") {
+    chrome.storage.local.set({ isSending: false }, () => {
+      console.log("Content: stopping process...");
+      //stopSendingProcess?.(); // optional cleanup if you need
+      chrome.runtime.sendMessage({ status: 'process_finished' });
+      updateProgress("Stopping process...", -1, false);
+    });
   }
+
   sendResponse({ status: "acknowledged" });
   return true;
 });
@@ -118,6 +148,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // --- Main Sending Logic (Updated with Final Permission System) ---
 // =====================================================================
 async function startSendingProcess() {
+  console.log("start sending process...");
   /* if (window.isSendingMessages) {
     alert("A sending process is already in progress.");
     return;

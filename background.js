@@ -68,10 +68,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "CHECK_LICENSE") {
-    const url = 'https://ausentismos.online/paypal/licensestatus';
+    const url = 'https://ausentismos.online/paypal/whatsapplicensestatus';
     const payload = {
-      user: message.userKey,
-      mex: false,
+      user: message.userKey,      
       token: "EMQzHBjq0YYpLHWWDjN-KGcVES4j-JYQ2FDHb6HjumFpQTbZclDMHIAmCULgK4Aa5pRSSs7f_OUB8mqQ"
     };
 
