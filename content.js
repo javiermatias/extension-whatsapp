@@ -17,7 +17,8 @@ window.addEventListener("load", () => {
   console.log("Page fully loaded, waiting 10 seconds before checking for the send button...");
 
   function checkButton(attempt) {
-    const sendButton = document.querySelector('button[data-tab="11"][aria-label="Enviar"]');
+    const sendButton = document.querySelector('[aria-label="Enviar"], [aria-label="Send"]');
+
 
     if (sendButton) {
       SendingProcess(true);
@@ -149,8 +150,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // --- Main Sending Logic (Updated with Final Permission System) ---
 // =====================================================================
 async function SendingProcess(foundSendButton) {
-  const isSending = await chrome.storage.local.get('isSending');
-  if (!isSending) {
+  const send = await chrome.storage.local.get('isSending');
+  if (!send.isSending) {
     console.log("Process stopped. Nothing to do.");
     return;
   }
@@ -206,6 +207,7 @@ async function SendingProcess(foundSendButton) {
           }       
      
           openChat(contact);
+          await sleep(3000);
     
 
       } catch (error) {
@@ -241,7 +243,7 @@ function openChat(contact) {
 }
 async function clickSendButton() {
   const sendTimes = await getSendConfig();
-  const sendButton = document.querySelector('button[data-tab="11"][aria-label="Enviar"]');
+  const sendButton = document.querySelector('[aria-label="Enviar"], [aria-label="Send"]');
   if (!sendButton) throw new Error("Could not find 'Send' button.");
   sendButton.click();
   await sleep(sendTimes.postSend);
@@ -321,16 +323,28 @@ function showLimitReachedModal() {
     <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
       You've sent your 20 free messages for the day. Thank you for using our tool!
     </p>
-    <div style="background-color: #f1f3f4; padding: 15px; border-radius: 8px;">
+    <div style="background-color: #f1f3f4; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
       <h3 style="margin: 0 0 10px 0; color: #333;">Upgrade for Unlimited Sending</h3>
-      <p style="margin: 0; color: #555;">To send unlimited messages and support our development, please consider purchasing a license.</p>
+      <p style="margin: 0 0 10px 0; color: #555;">To send unlimited messages and support our development, please consider purchasing a license.</p>
+      
+      <a href="https://wa.me/5493517418987" target="_blank" 
+         style="display: flex; align-items: center; justify-content: center; gap: 8px; 
+                background-color: #25D366; color: white; font-weight: bold; 
+                text-decoration: none; padding: 10px 15px; border-radius: 8px; 
+                margin-top: 10px; transition: background 0.2s;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="white" viewBox="0 0 24 24">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 2.1.55 4.13 1.6 5.92L.5 23.5l5.7-1.56A11.48 11.48 0 0 0 12 23.5c6.27 0 11.5-5.23 11.5-11.5S18.27.5 12 .5zm0 20.7c-1.82 0-3.6-.5-5.14-1.46l-.37-.23-3.39.93.91-3.31-.24-.38A9.56 9.56 0 0 1 2.9 12c0-5.02 4.08-9.1 9.1-9.1 2.43 0 4.71.95 6.43 2.67A9.04 9.04 0 0 1 21.1 12c0 5.02-4.08 9.1-9.1 9.1zm5.26-6.78c-.29-.15-1.7-.84-1.96-.93-.26-.1-.45-.15-.64.15s-.74.93-.91 1.12c-.17.19-.34.21-.63.07-.29-.15-1.22-.45-2.32-1.44-.86-.76-1.44-1.7-1.61-1.99-.17-.29-.02-.45.13-.6.13-.13.29-.34.43-.51.14-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.64-1.54-.88-2.11-.23-.55-.47-.48-.64-.49-.17-.01-.36-.01-.55-.01-.19 0-.51.07-.78.36-.27.29-1.02 1-1.02 2.43s1.04 2.82 1.19 3.01c.15.19 2.05 3.13 4.96 4.39.69.3 1.23.48 1.65.62.69.22 1.32.19 1.81.12.55-.08 1.7-.69 1.94-1.35.24-.66.24-1.22.17-1.34-.07-.12-.26-.19-.55-.34z"/>
+        </svg>
+        Contact via WhatsApp
+      </a>
     </div>
-    <button id="close-limit-modal-btn" style="width: 100%; padding: 12px; margin-top: 20px; background-color: #1a73e8; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold;">Got it</button>
+    <button id="close-limit-modal-btn" style="width: 100%; padding: 12px; margin-top: 10px; background-color: #1a73e8; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold;">Got it</button>
   `;
   
   document.body.appendChild(modal);
   document.getElementById("close-limit-modal-btn").addEventListener("click", () => modal.remove());
 }
+
 
 /**
  * Displays a friendly modal when a license has expired.
