@@ -13,27 +13,28 @@ chrome.storage.local.get(['isSending'], (result) => {
 });
 
 
-window.addEventListener("load", () => {
-  console.log("Page fully loaded, waiting 10 seconds before checking for the send button...");
+window.addEventListener("load", async () => {
+  const sendTimes = await getSendConfig();
+  console.log("Page fully loaded, waiting before checking for the send button...");
+  console.log("Resolved config:", sendTimes);
 
   function checkButton(attempt) {
     const sendButton = document.querySelector('[aria-label="Enviar"], [aria-label="Send"]');
-
 
     if (sendButton) {
       SendingProcess(true);
       //sendButton.click();
     } else if (attempt < 2) {
-      console.log(`Attempt ${attempt} failed, retrying in 10 seconds...`);
-      setTimeout(() => checkButton(attempt + 1), 10000);
+      console.log(`Attempt ${attempt} failed, retrying in ${sendTimes.postSend / 1000} seconds...`);
+      setTimeout(() => checkButton(attempt + 1), sendTimes.sendMessage);
     } else {
       SendingProcess(false);
       console.log("Button not found after 2 attempts.");
     }
   }
 
-  // First attempt after 10s
-  setTimeout(() => checkButton(1), 10000);
+  // First attempt after sendTimes.sendMessage ms
+  setTimeout(() => checkButton(1), sendTimes.sendMessage);
 }, { once: true });
 
 // =====================================================================
@@ -195,12 +196,12 @@ async function SendingProcess(foundSendButton) {
       updateProgress(`Sending ${i + 1}/${contactsToSend.length} to ${contact.number}...`, overallProgress);
 
       try {
-         if(foundSendButton){
-           await clickSendButton()
-           const index = contactList.findIndex(c => c.number === contact.number && c.message === contact.message);
-           if (index !== -1) contactList[index].sent = true;
-           await chrome.storage.local.set({ 'contactList': contactList });
+          if(foundSendButton){
+           await clickSendButton();          
           }
+          const index = contactList.findIndex(c => c.number === contact.number && c.message === contact.message);
+          if (index !== -1) contactList[index].sent = true;
+          await chrome.storage.local.set({ 'contactList': contactList });
         
           if (session.status === 'free') {
            await incrementUsageCount();
@@ -400,7 +401,7 @@ async function getSendConfig() {
   // Define the same defaults here as a fallback
   const defaultTimes = {
 
-    sendMessage: 2000,
+    sendMessage: 10000,
     postSend: 3000
   };
 

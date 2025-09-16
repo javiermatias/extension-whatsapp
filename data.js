@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentContact = {
                     number: number,
                     message: message,
-                    sent: false
+                    sent: 'Pending'
                 };
             } else if (currentContact) {
                 currentContact.message += '\n' + line;

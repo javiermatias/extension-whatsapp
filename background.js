@@ -6,7 +6,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 ///////////// Define the default timings for the sendMessage function/////////////////////
     const defaultConfig = {
       times: {
-        sendMessage: 2000,  // Wait after typing the message
+        sendMessage: 10000,  // Wait after typing the message
         postSend: 3000      // Wait after the message is sent
       }
     };

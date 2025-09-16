@@ -11,10 +11,16 @@
       --header-bg-color: #e2e8f0;
       --border-color: #cbd5e0;
       --row-hover-color: #edf2f7;
+
+      /* Existing status colors */
       --status-sent-bg: #c6f6d5;
       --status-sent-text: #2f855a;
       --status-pending-bg: #feebc8;
       --status-pending-text: #975a16;
+
+      /* New status colors for Failed */
+      --status-failed-bg: #fed7d7; /* Lighter red background */
+      --status-failed-text: #c53030; /* Darker red text */
     }
 
     body {
@@ -92,6 +98,12 @@
     .status-pending {
       background-color: var(--status-pending-bg);
       color: var(--status-pending-text);
+    }
+
+    /* New CSS for Failed status */
+    .status-failed {
+      background-color: var(--status-failed-bg);
+      color: var(--status-failed-text);
     }
   </style>
 </head>
