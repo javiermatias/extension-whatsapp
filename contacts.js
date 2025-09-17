@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     contacts.forEach(contact => {
       // Determine the status text and class based on the 'status' property
       let statusClass;
-      let statusText = contact.status || 'Pending'; // Default to 'Pending' if not set
+      let statusText = contact.sent || 'Pending'; // Default to 'Pending' if not set
 
       switch (statusText) {
           case 'Sent':

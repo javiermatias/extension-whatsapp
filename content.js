@@ -13,29 +13,29 @@ chrome.storage.local.get(['isSending'], (result) => {
 });
 
 
-window.addEventListener("load", async () => {
-  const sendTimes = await getSendConfig();
-  console.log("Page fully loaded, waiting before checking for the send button...");
-  console.log("Resolved config:", sendTimes);
+window.addEventListener("load", () => {
+  getSendConfig().then(sendTimes => {
+    console.log("Resolved config:", sendTimes);
 
-  function checkButton(attempt) {
-    const sendButton = document.querySelector('[aria-label="Enviar"], [aria-label="Send"]');
-
-    if (sendButton) {
-      SendingProcess(true);
-      //sendButton.click();
-    } else if (attempt < 2) {
-      console.log(`Attempt ${attempt} failed, retrying in ${sendTimes.postSend / 1000} seconds...`);
-      setTimeout(() => checkButton(attempt + 1), sendTimes.sendMessage);
-    } else {
-      SendingProcess(false);
-      console.log("Button not found after 2 attempts.");
+    function checkButton(attempt) {
+      const sendButton = document.querySelector('[aria-label="Enviar"], [aria-label="Send"]');
+      if (sendButton) {
+        SendingProcess(true,false);
+      } else if (attempt < 2) {
+        console.log(`Attempt ${attempt} failed, retrying in 10 seconds...`);
+        console.log("Resolved config:", sendTimes);
+        setTimeout(() => checkButton(attempt + 1), sendTimes.sendMessage);
+      } else {
+        SendingProcess(false,false);
+        console.log("Button not found after 2 attempts.");
+      }
     }
-  }
 
-  // First attempt after sendTimes.sendMessage ms
-  setTimeout(() => checkButton(1), sendTimes.sendMessage);
+    // First attempt after 10s
+    setTimeout(() => checkButton(1), sendTimes.sendMessage);
+  });
 }, { once: true });
+
 
 // =====================================================================
 // --- PERMISSION & USAGE-TRACKING LOGIC (REFACTORED FOR EFFICIENCY) ---
@@ -129,7 +129,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.command === "start_sending") {
     chrome.storage.local.set({ isSending: true }, () => {
       console.log("Content: starting process...");
-      SendingProcess(false); // your real function
+      SendingProcess(false,true); // your real function
       chrome.runtime.sendMessage({ status: 'process_started' });
     });
   }
@@ -150,7 +150,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // =====================================================================
 // --- Main Sending Logic (Updated with Final Permission System) ---
 // =====================================================================
-async function SendingProcess(foundSendButton) {
+async function SendingProcess(foundSendButton, firstime = false) {
   const send = await chrome.storage.local.get('isSending');
   if (!send.isSending) {
     console.log("Process stopped. Nothing to do.");
@@ -173,35 +173,48 @@ async function SendingProcess(foundSendButton) {
     const { contactList } = await chrome.storage.local.get('contactList');
     if (!contactList) throw new Error("Could not load contacts.");
 
-    const contactsToSend = contactList.filter(c => !c.sent);
+    const contactsToSend = contactList.filter(c => c.sent === "Pending");
     if (contactsToSend.length === 0) {
       updateProgress("All contacts sent!", 100);
-      await chrome.storage.local.set({ isSending: false });
+      await chrome.storage.local.set({ isSending: false });     
+      chrome.runtime.sendMessage({ status: 'process_finished' });
       setTimeout(() => document.getElementById("sender-progress-widget")?.remove(), 6000);
       return;
     }
 
     //const successfullySent = [], failedToSend = [];
-    for (let i = 0; i < contactsToSend.length; i++) {  
+    //for (let i = 0; i < contactsToSend.length; i++) {  
       
       if (session.status === 'free') {
         const isAllowed = await checkFreeTierDailyLimit();
         if (!isAllowed) {
           showLimitReachedModal();
-          break;
+          return;
         }
       }
-      const contact = contactsToSend[i];
-      const overallProgress = ((i + 1) / contactsToSend.length) * 100;
-      updateProgress(`Sending ${i + 1}/${contactsToSend.length} to ${contact.number}...`, overallProgress);
+    
+      const contact = contactsToSend[0];
+   
+      const overallProgress = ((1) / contactsToSend.length) * 100;
+      updateProgress(`Sending ${1}/${contactsToSend.length} to ${contact.number}...`, overallProgress);
 
       try {
+        if(firstime){
+
+          openChat(contact);        
+          
+        }else{
+         const index = contactList.findIndex(c => c.number === contact.number && c.message === contact.message);
           if(foundSendButton){
-           await clickSendButton();          
+            if (index !== -1) contactList[index].sent = 'Sent';
+            await clickSendButton();         
+                              
+          }else{
+            if (index !== -1) contactList[index].sent = 'Failed'; 
+          
           }
-          const index = contactList.findIndex(c => c.number === contact.number && c.message === contact.message);
-          if (index !== -1) contactList[index].sent = true;
-          await chrome.storage.local.set({ 'contactList': contactList });
+          await chrome.storage.local.set({ 'contactList': contactList });  
+        
         
           if (session.status === 'free') {
            await incrementUsageCount();
@@ -209,7 +222,7 @@ async function SendingProcess(foundSendButton) {
      
           openChat(contact);
           await sleep(3000);
-    
+        }
 
       } catch (error) {
         contact.error = error.message;
@@ -217,15 +230,11 @@ async function SendingProcess(foundSendButton) {
         updateProgress(`Failed for ${contact.number}. Continuing...`, overallProgress, true);
         await sleep(3000);
       }
-    }
+    //}
     //if (!window.shouldStop) showSummaryReport(successfullySent, failedToSend);
 
   } catch (error) {
     updateProgress(`Error: ${error.message}`, 0, true);
-  } finally {
-    //window.isSendingMessages = false;
-    await chrome.storage.local.set({ isSending: false });
-    chrome.runtime.sendMessage({ status: 'process_finished' });
   } 
 }
 

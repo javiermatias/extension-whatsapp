@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   let countSend = 0;
   if (contactList && Array.isArray(contactList)) {
     count = contactList.length;
-    countSend = contactList.filter(contact => contact.sent).length;
+    countSend = contactList.filter(contact => contact.sent === "Sent").length;
   }
   countElement.textContent = `Contacts Loaded: ${count}`;
   sendElement.textContent = `Sent Messages: ${countSend}`;
