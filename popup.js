@@ -45,7 +45,7 @@ sendButton.addEventListener("click", async () => {
     if (!tab.url || !tab.url.startsWith("https://web.whatsapp.com/")) {
       // Redirect the current tab to the correct URL
       chrome.tabs.update(tab.id, { url: "https://web.whatsapp.com/" });
-      alert("Please navigate to messages.google.com to use this feature.");      
+      alert("Please navigate to web.whatsapp.com to use this feature.");      
       
       return;
     }
@@ -69,7 +69,7 @@ sendButton.addEventListener("click", async () => {
   } catch (error) {
     // THIS IS THE FIX for "Receiving end does not exist"
     if (error.message.includes("Could not establish connection")) {
-      alert("Connection failed. Please RELOAD the Google Messages tab and try again.");
+      alert("Connection failed. Please RELOAD the Whatsapp tab and try again.");
       console.error("Connection Error:", error.message);
       // CRITICAL: Reset the state since the 'start' command failed
       await chrome.storage.local.set({ isSending: false });
