@@ -205,33 +205,18 @@ async function SendingProcess(foundSendButton) {
   }
 
   createProgressWidget();
-  updateProgress(session.status === 'premium' ? "Premium license active. Loading contacts..." : "Free tier active. Loading contacts...", 0);
+  //updateProgress(session.status === 'premium' ? "Premium license active. Loading contacts..." : "Free tier active. Loading contacts...", 0);
   
   try {
     const { contactList } = await chrome.storage.local.get('contactList');
     if (!contactList) throw new Error("Could not load contacts.");
-
-    const contactsToSend = contactList.filter(c => c.sent === "Pending");
-    if (contactsToSend.length === 0) {
-      updateProgress("All contacts sent!", 100);
-      await chrome.storage.local.set({ isSending: false });     
-      chrome.runtime.sendMessage({ status: 'process_finished' });
-      setTimeout(() => document.getElementById("sender-progress-widget")?.remove(), 6000);
-      return;
-    }
-      
-      if (session.status === 'free') {
+    if (session.status === 'free') {
         const isAllowed = await checkFreeTierDailyLimit();
         if (!isAllowed) {
           showLimitReachedModal();
           return;
         }
       }
-    
-      const contact = contactsToSend[0];
-   
-      const overallProgress = ((1) / contactsToSend.length) * 100;
-      updateProgress(`Sending ${1}/${contactsToSend.length} to ${contact.number}...`, overallProgress);
 
       try {
         
@@ -251,10 +236,21 @@ async function SendingProcess(foundSendButton) {
           if (session.status === 'free') {
            await incrementUsageCount();
           }
+          const nextContact = contactList.find(c => c.sent === "Pending");
+          const contactsToSend = contactList.filter(c => c.sent === "Pending");
+          if (!nextContact) {
+          updateProgress("All contacts sent!", 100);
+          await chrome.storage.local.set({ isSending: false });     
+          chrome.runtime.sendMessage({ status: 'process_finished' });
+          //setTimeout(() => document.getElementById("sender-progress-widget")?.remove(), 6000);
+          return;
+        }
+        const overallProgress = ((1) / contactsToSend.length) * 100;
+        updateProgress(`Sending ${1}/${contactsToSend.length} to ${actualContact.number}...`, overallProgress);
         
-        await chrome.storage.local.set({ 'actualContact': contact });
+        await chrome.storage.local.set({ 'actualContact': nextContact });
         await sleep(3000);
-        openChat(contact);
+        openChat(actualContact);
       } catch (error) {
         console.log(error);
         contact.error = error.message;
